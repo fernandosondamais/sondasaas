@@ -133,7 +133,7 @@ app.get('/reemitir-pdf/:id', async (req, res) => {
     } catch (err) { res.status(500).send('Erro'); }
 });
 
-// --- FUNÇÃO GERADORA DE PDF (AJUSTADO: LOGO E HEADER) ---
+// --- FUNÇÃO GERADORA DE PDF (AJUSTADO: LOGO, HEADER e REV00) ---
 function gerarPDFDinamico(res, d) {
     const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
     
@@ -157,10 +157,8 @@ function gerarPDFDinamico(res, d) {
     // --- 1. CABEÇALHO ---
     const logoPath = path.join(__dirname, 'public', 'logo.png');
     
-    // [AJUSTE FINAL] Logo subiu para Y=15
     if (fs.existsSync(logoPath)) { try { doc.image(logoPath, 30, 15, { width: 70 }); } catch (e) {} }
     
-    // [AJUSTE FINAL] Texto desceu para Y=110
     let headerTextY = 110; 
     doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.ACCENT).text('Sondamais Engenharia', 30, headerTextY);
     doc.font('Helvetica').fontSize(9).fillColor(COLORS.PRIMARY)
@@ -242,7 +240,8 @@ function gerarPDFDinamico(res, d) {
     doc.y = y + 10; // Sincroniza cursor
 
     doc.font('Helvetica-Bold').fontSize(10).text('SONDAMAIS', 30, doc.y);
-    doc.fontSize(8).text(`REV0${d.id % 5}`, 30, doc.y + 12); 
+    // [AJUSTE] FIXADO PARA REV00 (PADRÃO DE ENGENHARIA)
+    doc.fontSize(8).text('REV00', 30, doc.y + 12); 
     doc.font('Helvetica-Bold').fontSize(16).text(fmtMoney(d.total), 30, doc.y + 15);
 
     // --- 4. TEXTOS JURÍDICOS ---
