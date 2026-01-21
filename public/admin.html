@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SondaSaaS - Painel Administrativo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary-green: #8CBF26;
+            --secondary-blue: #003366;
+            --danger-red: #cc0000;
+            --light-bg: #f4f7f6;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-bg);
+            margin: 0;
+            padding: 20px;
+        }
+        
+        /* CABEÇALHO */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ddd;
+        }
+        h1 {
+            color: var(--secondary-blue);
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        .btn-voltar {
+            text-decoration: none;
+            color: var(--secondary-blue);
+            font-weight: bold;
+            border: 1px solid var(--secondary-blue);
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .btn-voltar:hover {
+            background-color: var(--secondary-blue);
+            color: white;
+        }
+
+        /* --- DASHBOARD (CARDS) --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-left: 6px solid var(--primary-green);
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-5px); }
+        .card h3 {
+            margin: 0 0 10px 0;
+            color: var(--secondary-blue);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-green);
+        }
+
+        /* --- ÁREA DO GRÁFICO --- */
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            height: 300px; /* Altura fixa para o gráfico */
+            position: relative;
+        }
+
+        /* TABELA */
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead {
+            background-color: var(--secondary-blue);
+            color: white;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+        }
+        tr:hover { background-color: #f9f9f9; }
+        .valor {
+            font-weight: bold;
+            color: var(--secondary-blue);
+        }
+        .badge-id {
+            background-color: #eee;
+            color: #333;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        /* BOTÕES DE AÇÃO */
+        .actions-cell { display: flex; gap: 8px; }
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            cursor: pointer;
+            border: none;
+            transition: opacity 0.2s;
+            color: white;
+            font-weight: 600;
+        }
+        .btn-action:hover { opacity: 0.85; }
+        .btn-download { background-color: var(--secondary-blue); }
+        .btn-delete { background-color: var(--danger-red); }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Painel Gerencial SondaMais</h1>
+        <div style="display: flex; gap: 10px;">
+            <a href="/" class="btn-voltar">← Novo Orçamento</a>
+            <a href="/logout" class="btn-voltar" style="border-color: #cc0000; color: #cc0000;">Sair ✖</a>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3>Propostas Emitidas</h3>
+            <div class="number" id="totalCount">0</div>
+        </div>
+        <div class="card">
+            <h3>Volume de Sondagem (m)</h3>
+            <div class="number" id="totalMetros">0.00 m</div>
+        </div>
+        <div class="card">
+            <h3>Total Ofertado (R$)</h3>
+            <div class="number" id="totalMoney">R$ 0,00</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="financeiroChart"></canvas>
+    </div>
+
+    <div class="table-container">
+        <table id="tabelaPropostas">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Cliente</th>
+                    <th>Endereço da Obra</th>
+                    <th>Furos</th>
+                    <th>Metragem</th>
+                    <th>Total (R$)</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="7" style="text-align:center">Carregando dados...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        let myChart = null; // Variável global para o gráfico
+
+        async function carregarHistorico() {
+            try {
+                const response = await fetch('/api/propostas');
+                
+                // Se o servidor devolver erro 403/401, redireciona pro login
+                if (response.status === 403 || response.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const propostas = await response.json();
+
+                const tbody = document.querySelector('#tabelaPropostas tbody');
+                tbody.innerHTML = ''; 
+
+                let somaValor = 0;
+                let somaMetros = 0;
+                
+                // Arrays para o gráfico
+                const labelsGrafico = [];
+                const dadosGrafico = [];
+
+                propostas.forEach(p => {
+                    const val = parseFloat(p.valor_total);
+                    const met = parseFloat(p.metragem_total);
+                    somaValor += val;
+                    somaMetros += met;
+
+                    // Dados para o gráfico (Pegando os últimos 15)
+                    if(labelsGrafico.length < 15) {
+                        labelsGrafico.push(`Prop. #${p.id}`);
+                        dadosGrafico.push(val);
+                    }
+
+                    const tr = document.createElement('tr');
+                    const valorFormatado = val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                    tr.innerHTML = `
+                        <td><span class="badge-id">#${p.id}</span></td>
+                        <td>${p.cliente}</td>
+                        <td>${p.endereco}</td>
+                        <td>${p.furos}</td>
+                        <td>${p.metragem_total}m</td>
+                        <td class="valor">${valorFormatado}</td>
+                        <td class="actions-cell">
+                            <a href="/reemitir-pdf/${p.id}" class="btn-action btn-download" target="_blank" title="Baixar PDF">⬇ PDF</a>
+                            <button onclick="deletarProposta(${p.id})" class="btn-action btn-delete" title="Excluir">🗑</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (propostas.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Nenhuma proposta encontrada.</td></tr>';
+                }
+
+                // Atualiza Cards
+                document.getElementById('totalCount').innerText = propostas.length;
+                document.getElementById('totalMetros').innerText = somaMetros.toFixed(2) + ' m';
+                document.getElementById('totalMoney').innerText = somaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                // Atualiza/Gera Gráfico
+                renderizarGrafico(labelsGrafico.reverse(), dadosGrafico.reverse());
+
+            } catch (error) {
+                console.error('Erro:', error);
+                // Não alertamos mais aqui para evitar pop-up no redirect
+            }
+        }
+
+        function renderizarGrafico(labels, data) {
+            const ctx = document.getElementById('financeiroChart').getContext('2d');
+            
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Valor da Proposta (R$)',
+                        data: data,
+                        backgroundColor: '#8CBF26', /* Verde SondaMais */
+                        borderColor: '#003366',     /* Azul SondaMais */
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: true, text: 'Performance de Vendas Recentes' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        async function deletarProposta(id) {
+            if (confirm(`Tem certeza que deseja EXCLUIR a proposta #${id}?`)) {
+                try {
+                    const res = await fetch(`/api/propostas/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        carregarHistorico(); 
+                    } else {
+                        alert('Erro ao excluir.');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Erro de conexão.');
+                }
+            }
+        }
+
+        carregarHistorico();
+    </script>
+
+</body>
+</html>
