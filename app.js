@@ -10,11 +10,10 @@ const port = process.env.PORT || 3000;
 let adminLogado = false; 
 const SENHA_MESTRA = 'admin123';
 
-// CORES DO PADRÃO VISUAL DOS PDFs ENVIADOS
 const COLORS = {
-    PRIMARY: '#444444',    // Cinza Escuro (Texto)
-    ACCENT: '#6a9615',     // Verde SondaMais (Logos/Detalhes)
-    BORDER: '#000000',     // Preto (Bordas finas)
+    PRIMARY: '#444444',    // Cinza Escuro
+    ACCENT: '#6a9615',     // Verde SondaMais
+    BORDER: '#000000',
     BG_HEADER: '#ffffff'
 };
 
@@ -116,7 +115,7 @@ app.get('/reemitir-pdf/:id', async (req, res) => {
     } catch (err) { res.status(500).send('Erro'); }
 });
 
-// --- GERADOR PDF IDÊNTICO AO MODELO FÍSICO ---
+// --- GERADOR PDF COM ESPAÇAMENTO INTELIGENTE ---
 function gerarPDFDinamico(res, d) {
     const doc = new PDFDocument({ margin: 30, size: 'A4' });
     
@@ -124,75 +123,79 @@ function gerarPDFDinamico(res, d) {
     res.setHeader('Content-Disposition', `attachment; filename="Proposta_${d.id}.pdf"`);
     doc.pipe(res);
 
-    // 1. HEADER (Lado Esquerdo: Logo e Endereço)
+    // 1. HEADER - Ajuste para o logo não bater no texto
     const logoPath = path.join(__dirname, 'public', 'logo.png');
     if (fs.existsSync(logoPath)) {
-        try { doc.image(logoPath, 30, 30, { width: 80 }); } catch (e) {}
+        try { doc.image(logoPath, 30, 30, { width: 70 }); } catch (e) {}
     }
 
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.PRIMARY).text('Sondamais', 30, 85);
+    // Empurramos o texto para baixo (Y=100) para garantir que não pegue no Logo
+    let headerTextY = 95; 
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.ACCENT).text('Sondamais Engenharia', 30, headerTextY);
     doc.font('Helvetica').fontSize(9).fillColor(COLORS.PRIMARY)
-       .text('R. Luís Spiandorelli Neto, 60', 30, 100)
-       .text('Valinhos, São Paulo, 13271-570', 30, 112)
-       .text('(19) 99800-2260', 30, 124)
-       .text('contato@sondamais.com.br', 30, 136);
+       .text('R. Luís Spiandorelli Neto, 60', 30, headerTextY + 15)
+       .text('Valinhos, São Paulo, 13271-570', 30, headerTextY + 27)
+       .text('(19) 99800-2260 | contato@sondamais.com.br', 30, headerTextY + 39);
 
-    // 2. HEADER (Lado Direito: Dados da Proposta - Box Cinza/Branco)
+    // Coluna Direita (Dados Proposta)
     const boxX = 300;
     const boxY = 40;
     
-    // Título "Orçamento"
     doc.font('Helvetica-Bold').fontSize(14).text('Orçamento', boxX, boxY);
     
-    // Grid de Informações
     doc.font('Helvetica-Bold').fontSize(9);
     doc.text('Data', boxX, boxY + 25);
     doc.font('Helvetica').text(d.data, boxX, boxY + 37);
 
-    doc.font('Helvetica-Bold').text('Número da Proposta', boxX + 150, boxY + 25); // Lado a lado
+    doc.font('Helvetica-Bold').text('Número da Proposta', boxX + 150, boxY + 25);
     doc.font('Helvetica').text(`${d.id}/2026`, boxX + 150, boxY + 37);
 
     doc.font('Helvetica-Bold').text('Pagamento', boxX, boxY + 55);
-    doc.font('Helvetica').text('50% SINAL ENTRADA E RESTANTE NA ENTREGA', boxX, boxY + 67, {width: 250});
-    doc.text('DO LAUDO - TRANSFERÊNCIA BANCÁRIA OU PIX', boxX, boxY + 79);
+    doc.font('Helvetica').text('50% SINAL + 50% ENTREGA DO LAUDO', boxX, boxY + 67);
+    doc.text('(PIX / Transferência Bancária)', boxX, boxY + 79);
 
     doc.font('Helvetica-Bold').text('Elaborado por:', boxX, boxY + 95);
     doc.font('Helvetica').text('Eng. Fabiano Rielli', boxX, boxY + 107);
 
-    // Dados do Cliente (Abaixo do elaborado)
-    const clienteY = boxY + 130;
+    const clienteY = boxY + 125;
     doc.font('Helvetica-Bold').text('Solicitante:', boxX, clienteY);
     doc.font('Helvetica').text(d.cliente, boxX + 55, clienteY);
-    if(d.telefone) doc.text(`Tel: ${d.telefone}`, boxX, clienteY + 12);
     
-    doc.font('Helvetica-Bold').text('Endereço:', boxX, clienteY + 24);
-    doc.font('Helvetica').text(d.endereco, boxX + 50, clienteY + 24, {width: 200});
+    // Tratamento de quebra de linha seguro para endereço
+    doc.text(`Tel: ${d.telefone || '-'} | Email: ${d.email || '-'}`, boxX, clienteY + 14, {width: 260});
+    doc.text(`Local: ${d.endereco}`, boxX, clienteY + 28, {width: 260});
 
-    // 3. TABELA DE ITENS (Igual ao modelo PDF)
-    const tableTop = 200;
+    // 2. TABELA DE ITENS (Com altura dinâmica)
+    let y = 220; // Começa mais para baixo para não bater no cabeçalho
     const colDesc = 30;
     const colQtd = 330;
     const colUnit = 380;
     const colTotal = 460;
 
-    // Cabeçalho da Tabela
-    doc.rect(30, tableTop, 535, 20).fill('#f0f0f0');
+    // Cabeçalho Cinza
+    doc.rect(30, y, 535, 20).fill('#f0f0f0');
     doc.fillColor('black').font('Helvetica-Bold').fontSize(9);
-    doc.text('Descrição', colDesc + 5, tableTop + 6);
-    doc.text('Qtd', colQtd, tableTop + 6);
-    doc.text('Preço unitário', colUnit, tableTop + 6);
-    doc.text('Preço total', colTotal, tableTop + 6);
+    doc.text('Descrição', colDesc + 5, y + 6);
+    doc.text('Qtd', colQtd, y + 6);
+    doc.text('Unitário', colUnit, y + 6);
+    doc.text('Total', colTotal, y + 6);
 
-    let y = tableTop + 25;
+    y += 25;
 
-    // Função de Linha
+    // Função que calcula altura necessária
     function drawRow(desc, subtext, qtd, unit, total) {
-        doc.font('Helvetica-Bold').fontSize(9).text(desc, colDesc, y);
+        // Se estiver muito embaixo, cria nova página
+        if (y > 700) { doc.addPage(); y = 50; }
+
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.PRIMARY).text(desc, colDesc, y);
         
-        let height = 15;
+        let rowHeight = 20; // Altura padrão
+        
         if(subtext) {
+            // Desenha o subtexto e vê quanto espaço ocupou
             doc.font('Helvetica').fontSize(8).text(subtext, colDesc, y + 12, {width: 290});
-            height = 35; // Altura maior para texto de descrição
+            // O texto longo ocupa espaço, então aumentamos a altura da linha manualmente para garantir
+            rowHeight = 45; 
         }
         
         doc.font('Helvetica').fontSize(9);
@@ -200,9 +203,10 @@ function gerarPDFDinamico(res, d) {
         doc.text(unit, colUnit, y);
         doc.text(total, colTotal, y);
         
-        y += height;
+        // Linha divisória
+        y += rowHeight;
         doc.moveTo(30, y).lineTo(565, y).strokeColor('#eeeeee').lineWidth(1).stroke();
-        y += 5;
+        y += 10; // Espaço extra antes da próxima linha
     }
 
     // Itens
@@ -221,7 +225,7 @@ function gerarPDFDinamico(res, d) {
             `R$ ${d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
 
     if(d.mobilizacao > 0) {
-        drawRow('Mobilização (combustível, alimentação, pedágio)', null, 'L', 
+        drawRow('Mobilização (Logística)', null, '1', 
                 `R$ ${d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 
                 `R$ ${d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
     }
@@ -232,66 +236,81 @@ function gerarPDFDinamico(res, d) {
                 `- R$ ${d.desconto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
     }
 
-    // 4. TOTAL (Box destacado na esquerda igual ao modelo)
+    // 3. TOTAL
     y += 10;
     doc.font('Helvetica-Bold').fontSize(10).text('SONDAMAIS', 30, y);
-    doc.fontSize(8).text(`REV0${d.id % 5}`, 30, y + 12); // Simula revisão
+    doc.fontSize(8).text(`REV0${d.id % 5}`, 30, y + 12);
     
-    doc.font('Helvetica-Bold').fontSize(14).text(`R$ ${d.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 30, y + 25);
-    doc.font('Helvetica').fontSize(8).text('Total base à vista, no boleto ou pix', 30, y + 40);
+    doc.font('Helvetica-Bold').fontSize(16).text(`R$ ${d.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 30, y + 25);
+    doc.font('Helvetica').fontSize(8).text('Total base à vista', 30, y + 42);
 
-    // 5. TEXTO JURÍDICO DA NORMA (O mais importante)
-    y += 60;
-    doc.font('Helvetica').fontSize(8).text(
+
+    // 4. TEXTOS JURÍDICOS (CORREÇÃO DA ILEGIBILIDADE)
+    // Usamos moveDown() para que o PDF calcule sozinho onde escrever a próxima linha
+    
+    doc.y = y + 70; // Move o cursor para baixo do total com segurança
+
+    doc.font('Helvetica').fontSize(8);
+    
+    // Texto 1
+    doc.text(
         "Na ausência do fornecimento do critério de paralisação por parte da contratante ou seu preposto, o CRITÉRIO DE PARALIZAÇÃO DOS ENSAIOS SEGUE AS RECOMENDAÇÕES DA NBR 6484:2020, ITEM 5.2.4 OU 6.2.4.",
-        30, y, {width: 535, align: 'justify'}
+        30, doc.y, {width: 535, align: 'justify'}
     );
     
-    y += 25;
+    doc.moveDown(0.8); // Dá um respiro
+
+    // Texto 2 (Destaque)
     doc.font('Helvetica-Bold').text(
-        "** Conforme critério de paralisação de sondagem-SPT (Norma NBR 6484:2020 - vide abaixo), a profundidade atingida pode sofrer variação. Portanto, caso ultrapasse a *metragem mínima será cobrado R$ " + d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + " por metro excedente da sondagem.",
-        30, y, {width: 535, align: 'justify'}
+        "** Conforme critério de paralisação de sondagem-SPT (Norma NBR 6484:2020 - vide abaixo), a profundidade atingida pode sofrer variação. Portanto, caso ultrapasse a *metragem mínima será cobrado R$ " + d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + " por metro excedente.",
+        {width: 535, align: 'justify'}
     );
 
-    // Texto da Norma (Itens a, b, c)
-    y += 35;
+    doc.moveDown(0.8);
+
+    // Texto 3 (Itens da Norma) - Aqui estava o problema grave
     doc.font('Helvetica').text(
-        "5.2.4.2 Na ausência do fornecimento do critério de paralisação por parte da contratante ou de seu preposto, as sondagens devem avançar até que seja atingido um dos seguintes critérios:",
-        30, y, {width: 535}
+        "5.2.4.2 Na ausência do fornecimento do critério de paralisação, as sondagens devem avançar até:",
+        {width: 535}
     );
-    y += 12;
-    doc.text("a) avanço da sondagem até a profundidade na qual tenham sido obtidos 10 m de resultados consecutivos indicando N iguais ou superiores a 25 golpes;", 40, y, {width: 525});
-    y += 12;
-    doc.text("b) avanço da sondagem até a profundidade na qual tenham sido obtidos 8 m de resultados consecutivos indicando N iguais ou superiores a 30 golpes;", 40, y + 10, {width: 525});
-    y += 12;
-    doc.text("c) avanço da sondagem até a profundidade na qual tenham sido obtidos 6 m de resultados consecutivos indicando N iguais ou superiores a 35 golpes;", 40, y + 20, {width: 525});
-
-    // 6. CRONOGRAMA (Tabela Final)
-    y += 45;
-    if(y > 700) { doc.addPage(); y = 50; }
     
-    doc.font('Helvetica-Bold').fontSize(10).text('CRONOGRAMA', 30, y);
-    y += 15;
+    doc.moveDown(0.5);
+    doc.text("a) avanço até a profundidade com 10 m de resultados consecutivos N >= 25 golpes;", {indent: 10, width: 525});
+    doc.moveDown(0.3);
+    doc.text("b) avanço até a profundidade com 8 m de resultados consecutivos N >= 30 golpes;", {indent: 10, width: 525});
+    doc.moveDown(0.3);
+    doc.text("c) avanço até a profundidade com 6 m de resultados consecutivos N >= 35 golpes;", {indent: 10, width: 525});
 
-    // Linhas do Cronograma
+
+    // 5. CRONOGRAMA
+    doc.moveDown(2); // Pula 2 linhas inteiras antes do Cronograma
+    
+    // Verifica se cabe na página
+    if(doc.y > 700) { doc.addPage(); doc.y = 50; }
+    
+    let cronoY = doc.y;
+    doc.font('Helvetica-Bold').fontSize(10).text('CRONOGRAMA', 30, cronoY);
+    cronoY += 20;
+
     const cronoData = [
-        ['Previsão de execução da sondagem', '1 a 2 dias'],
-        ['Previsão de início sujeito à alteração', 'A combinar'],
-        ['Entrega do relatório de Sondagem', 'Em até 3 dias, após a execução do serviço'],
-        ['Validade da proposta', '10 dias']
+        ['Previsão de execução', '1 a 2 dias'],
+        ['Início', 'A combinar'],
+        ['Entrega do Relatório', '3 dias úteis após execução'],
+        ['Validade', '10 dias']
     ];
 
+    doc.font('Helvetica').fontSize(9);
     cronoData.forEach(row => {
-        doc.rect(30, y, 535, 20).stroke();
-        doc.font('Helvetica').fontSize(9).text(row[0], 35, y + 6);
-        doc.text(row[1], 300, y + 6);
-        y += 20;
+        doc.rect(30, cronoY, 535, 20).stroke();
+        doc.text(row[0], 35, cronoY + 6);
+        doc.text(row[1], 300, cronoY + 6);
+        cronoY += 20;
     });
 
     doc.end();
 }
 
-// --- MIGRATION (Mantida para segurança) ---
+// --- MIGRATION (Mantida) ---
 const initSQL = `
   CREATE TABLE IF NOT EXISTS propostas (
     id SERIAL PRIMARY KEY,
@@ -311,7 +330,7 @@ const initSQL = `
 
 pool.query(initSQL)
   .then(() => {
-    console.log('>>> SISTEMA ONLINE: PDF PADRÃO ENGENHARIA ATIVADO <<<');
+    console.log('>>> SISTEMA ONLINE: PDF COM ESPAÇAMENTO DINÂMICO <<<');
     app.listen(port, () => { console.log(`Rodando na porta ${port}`); });
   })
   .catch(err => { console.error('ERRO NO BANCO:', err); });
