@@ -1,3 +1,139 @@
+const express = require('express');
+const { Pool } = require('pg');
+const path = require('path');
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// --- CONFIGURAÇÕES ---
+let adminLogado = false; 
+const SENHA_MESTRA = 'admin123';
+
+const COLORS = {
+    PRIMARY: '#444444', 
+    ACCENT: '#6a9615', // Verde da Identidade Visual
+    BORDER: '#000000', 
+    BG_HEADER: '#ffffff'
+};
+
+const isProduction = process.env.NODE_ENV === 'production';
+const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:admin123@localhost:5432/sondasaas';
+
+const pool = new Pool({
+    connectionString: connectionString,
+    ssl: isProduction ? { rejectUnauthorized: false } : false
+});
+
+app.use(express.json());
+app.use(express.static('public')); 
+
+// --- ROTAS DE PÁGINAS ---
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/admin', (req, res) => adminLogado ? res.sendFile(path.join(__dirname, 'public', 'admin.html')) : res.redirect('/login'));
+app.get('/logout', (req, res) => { adminLogado = false; res.redirect('/login'); });
+
+// --- ROTAS DA API ---
+app.post('/api/login', (req, res) => {
+    if (req.body.senha === SENHA_MESTRA) { adminLogado = true; res.sendStatus(200); } else { res.sendStatus(401); }
+});
+
+app.get('/api/propostas', async (req, res) => {
+    if (!adminLogado) return res.status(403).json({ error: 'Acesso negado' });
+    try {
+        const result = await pool.query('SELECT * FROM propostas ORDER BY id DESC');
+        res.json(result.rows);
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar propostas' }); }
+});
+
+app.delete('/api/propostas/:id', async (req, res) => {
+    if (!adminLogado) return res.status(403).send('Acesso Negado');
+    try {
+        await pool.query('DELETE FROM propostas WHERE id = $1', [req.params.id]);
+        res.status(200).send('Excluído');
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+});
+
+app.post('/gerar-proposta', async (req, res) => {
+    const d = req.body;
+    const v_furos = parseInt(d.furos) || 0;
+    const v_metragem = parseFloat(d.metragem) || 0;
+    const v_metro = parseFloat(d.valor_metro) || 0;
+    const v_art = parseFloat(d.art) || 0;
+    const v_mobi = parseFloat(d.mobilizacao) || 0;
+    const v_desc = parseFloat(d.desconto) || 0;
+    
+    const subtotal_sondagem = v_metragem * v_metro;
+    const valor_total = subtotal_sondagem + v_art + v_mobi - v_desc;
+    
+    const cliente_tel = d.telefone || '';
+    const cliente_email = d.email || '';
+
+    try {
+        const sql = `INSERT INTO propostas (cliente, telefone, email, endereco, furos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, data_criacao`;
+        const values = [d.cliente, cliente_tel, cliente_email, d.endereco, v_furos, v_metragem, v_art, v_mobi, v_desc, valor_total];
+        
+        const dbRes = await pool.query(sql, values);
+        
+        const dadosPDF = {
+            id: dbRes.rows[0].id, 
+            data: new Date().toLocaleDateString('pt-BR'),
+            cliente: d.cliente, 
+            telefone: cliente_tel, 
+            email: cliente_email, 
+            endereco: d.endereco, 
+            furos: v_furos, 
+            metragem: v_metragem, 
+            valor_metro: v_metro, 
+            subtotal_sondagem: subtotal_sondagem, 
+            art: v_art, 
+            mobilizacao: v_mobi, 
+            desconto: v_desc, 
+            total: valor_total
+        };
+        gerarPDFDinamico(res, dadosPDF);
+    } catch (err) { console.error('Erro ao salvar:', err); res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.get('/reemitir-pdf/:id', async (req, res) => {
+    if (!adminLogado) return res.redirect('/login');
+    try {
+        const result = await pool.query('SELECT * FROM propostas WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).send('Não encontrado');
+        
+        const row = result.rows[0];
+        const total = parseFloat(row.valor_total); 
+        const art = parseFloat(row.valor_art);
+        const mobi = parseFloat(row.valor_mobilizacao); 
+        const desc = parseFloat(row.valor_desconto);
+        const metragem = parseFloat(row.metragem_total);
+        
+        const subtotal = total - art - mobi + desc;
+        const v_metro = metragem > 0 ? subtotal / metragem : 0;
+        
+        const dadosPDF = {
+            id: row.id, 
+            data: new Date(row.data_criacao).toLocaleDateString('pt-BR'),
+            cliente: row.cliente, 
+            telefone: row.telefone || '', 
+            email: row.email || '', 
+            endereco: row.endereco, 
+            furos: row.furos, 
+            metragem: metragem, 
+            valor_metro: v_metro, 
+            subtotal_sondagem: subtotal,
+            art: art, 
+            mobilizacao: mobi, 
+            desconto: desc, 
+            total: total
+        };
+        gerarPDFDinamico(res, dadosPDF);
+    } catch (err) { res.status(500).send('Erro'); }
+});
+
+// --- FUNÇÃO GERADORA DE PDF (FIXED) ---
 function gerarPDFDinamico(res, d) {
     const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
     
@@ -6,20 +142,19 @@ function gerarPDFDinamico(res, d) {
     res.setHeader('Content-Disposition', `attachment; filename="Proposta_${d.id}.pdf"`);
     doc.pipe(res);
 
-    // --- HELPER: Formatação de Moeda ---
+    // Helper: Formatação de Moeda
     const fmtMoney = (v) => `R$ ${parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 
-    // --- HELPER: Controle de Quebra de Página Inteligente ---
-    // Verifica se há espaço suficiente (neededHeight). Se não, cria nova página.
+    // Helper: Controle de Quebra de Página Inteligente
     function checkPageBreak(neededHeight) {
         if (doc.y + neededHeight > doc.page.height - doc.page.margins.bottom) {
             doc.addPage();
-            return true; // Retorna true se houve quebra
+            return true;
         }
         return false;
     }
 
-    // --- 1. CABEÇALHO (Posições Fixas são OK aqui) ---
+    // --- 1. CABEÇALHO ---
     const logoPath = path.join(__dirname, 'public', 'logo.png');
     if (fs.existsSync(logoPath)) { try { doc.image(logoPath, 30, 30, { width: 70 }); } catch (e) {} }
     
@@ -55,7 +190,6 @@ function gerarPDFDinamico(res, d) {
     let y = 230; 
     const colDesc = 30, colQtd = 330, colUnit = 380, colTotal = 460;
 
-    // Função para desenhar o cabeçalho da tabela
     function drawTableHeader(posY) {
         doc.rect(30, posY, 535, 20).fill('#f0f0f0');
         doc.fillColor('black').font('Helvetica-Bold').fontSize(9);
@@ -63,24 +197,22 @@ function gerarPDFDinamico(res, d) {
         doc.text('Qtd', colQtd, posY + 6); 
         doc.text('Unitário', colUnit, posY + 6); 
         doc.text('Total', colTotal, posY + 6);
-        return posY + 25; // Retorna a nova posição Y
+        return posY + 25; 
     }
 
-    y = drawTableHeader(y); // Desenha o cabeçalho inicial
+    y = drawTableHeader(y); 
 
     function drawRow(desc, subtext, qtd, unit, total) {
-        // Verifica se cabe a linha (estimando 45px se tiver subtexto, ou 20px se não)
         const rowHeight = subtext ? 45 : 20;
         
-        // Se passar de 700 (margem segura), nova página
+        // Verifica quebra de página
         if (y + rowHeight > 750) { 
             doc.addPage(); 
             y = 50; 
-            y = drawTableHeader(y); // Redesenha cabeçalho na nova página
+            y = drawTableHeader(y); 
         }
 
         doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.PRIMARY).text(desc, colDesc, y);
-        
         if(subtext) { 
             doc.font('Helvetica').fontSize(8).text(subtext, colDesc, y + 12, {width: 290, align: 'justify'}); 
         }
@@ -95,7 +227,7 @@ function gerarPDFDinamico(res, d) {
         y += 10; 
     }
 
-    // Dados da Tabela
+    // Linhas da tabela
     drawRow('Sondagem SPT', '(furos de até 20m ou NBR 6484:2020). Cobrado o metro excedente.', d.furos, '', '');
     drawRow('*Metragem mínima (metros lineares)', null, d.metragem, fmtMoney(d.valor_metro), fmtMoney(d.subtotal_sondagem));
     drawRow('ART', null, '1', fmtMoney(d.art), fmtMoney(d.art));
@@ -103,27 +235,22 @@ function gerarPDFDinamico(res, d) {
     if(d.desconto > 0) drawRow('Desconto Comercial', null, '-', '-', `- ${fmtMoney(d.desconto)}`);
 
     // --- 3. TOTAIS ---
-    // Verifica espaço para o bloco de totais (aprox 60px)
     checkPageBreak(60); 
-    // Sincroniza o cursor do PDFKit com nossa variável Y manual
-    doc.y = y + 10; 
+    doc.y = y + 10; // Sincroniza cursor
 
     doc.font('Helvetica-Bold').fontSize(10).text('SONDAMAIS', 30, doc.y);
-    doc.fontSize(8).text(`REV0${d.id % 5}`, 30, doc.y + 12); // Pequeno ajuste visual
+    doc.fontSize(8).text(`REV0${d.id % 5}`, 30, doc.y + 12); 
     doc.font('Helvetica-Bold').fontSize(16).text(fmtMoney(d.total), 30, doc.y + 15);
 
-    // --- 4. TEXTOS JURÍDICOS (CORREÇÃO DE COLISÃO) ---
-    doc.moveDown(2); // Dá um espaço após o total
-    
-    // Aqui garantimos que o cursor (doc.y) está seguro
-    checkPageBreak(100); // Verifica se tem espaço para começar o texto jurídico
+    // --- 4. TEXTOS JURÍDICOS (CORRIGIDO) ---
+    doc.moveDown(2); 
+    checkPageBreak(100); 
 
     doc.font('Helvetica').fontSize(8);
     doc.text("Na ausência do fornecimento do critério de paralisação por parte da contratante ou seu preposto, o CRITÉRIO DE PARALIZAÇÃO DOS ENSAIOS SEGUE AS RECOMENDAÇÕES DA NBR 6484:2020, ITEM 5.2.4 OU 6.2.4.", {width: 535, align: 'justify'});
     
     doc.moveDown(0.8);
     
-    // CORREÇÃO DO NEGRITO: Usamos font switch em vez de Markdown "**"
     doc.font('Helvetica-Bold');
     doc.text("Conforme critério de paralisação de sondagem-SPT (Norma NBR 6484:2020 - vide abaixo), a profundidade atingida pode sofrer variação. Portanto, caso ultrapasse a metragem mínima será cobrado " + fmtMoney(d.valor_metro) + " por metro excedente.", {width: 535, align: 'justify'});
     
@@ -131,7 +258,6 @@ function gerarPDFDinamico(res, d) {
     doc.font('Helvetica').text("5.2.4.2 Na ausência do fornecimento do critério de paralisação, as sondagens devem avançar até:", {width: 535});
     doc.moveDown(0.5);
     
-    // Lista com recuo
     const listOpts = {indent: 10, width: 525};
     doc.text("a) avanço até a profundidade com 10 m de resultados consecutivos N >= 25 golpes;", listOpts);
     doc.moveDown(0.2);
@@ -141,12 +267,7 @@ function gerarPDFDinamico(res, d) {
 
     // --- 5. CRONOGRAMA ---
     doc.moveDown(2);
-    
-    // Verifica espaço para o bloco do cronograma inteiro (aprox 120px)
-    if (checkPageBreak(120)) {
-        // Se criou página nova, reseta Y para o topo
-        doc.y = 50;
-    }
+    if (checkPageBreak(120)) { doc.y = 50; }
 
     doc.font('Helvetica-Bold').fontSize(10).text('CRONOGRAMA', 30, doc.y);
     doc.moveDown(0.5);
@@ -170,3 +291,32 @@ function gerarPDFDinamico(res, d) {
 
     doc.end();
 }
+
+// --- INICIALIZAÇÃO DO SERVIDOR E BANCO DE DADOS ---
+const initSQL = `
+    CREATE TABLE IF NOT EXISTS propostas (
+        id SERIAL PRIMARY KEY, 
+        cliente VARCHAR(255), 
+        endereco TEXT, 
+        furos INTEGER, 
+        metragem_total NUMERIC, 
+        valor_art NUMERIC, 
+        valor_mobilizacao NUMERIC, 
+        valor_desconto NUMERIC, 
+        valor_total NUMERIC, 
+        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ); 
+    ALTER TABLE propostas ADD COLUMN IF NOT EXISTS telefone VARCHAR(50); 
+    ALTER TABLE propostas ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+`;
+
+pool.query(initSQL)
+    .then(() => { 
+        console.log('>>> DB OK <<<'); 
+        app.listen(port, () => { 
+            console.log(`Rodando na porta ${port}`); 
+        }); 
+    })
+    .catch(err => { 
+        console.error('ERRO DB:', err); 
+    });
