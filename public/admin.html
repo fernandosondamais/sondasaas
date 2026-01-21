@@ -15,16 +15,23 @@
 
         body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
 
-        /* Navbar Compacta (Pedido do Fabiano) */
+        /* --- CORREÇÃO: BARRA VERDE (IDENTIDADE VISUAL) --- */
         .navbar-admin {
-            background: linear-gradient(90deg, var(--sonda-blue) 0%, #004080 100%);
+            background: linear-gradient(90deg, var(--sonda-green) 0%, var(--sonda-dark-green) 100%);
             padding: 10px 0;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
-        .brand-text { color: white; font-weight: 700; font-size: 1.2rem; margin-left: 10px; }
-        .btn-logout { background-color: rgba(255,255,255,0.1); color: white; border: none; }
-        .btn-logout:hover { background-color: rgba(255,255,255,0.2); color: white; }
+        .brand-text { color: white; font-weight: 700; font-size: 1.2rem; margin-left: 10px; text-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        /* Botões do Topo */
+        .btn-logout { 
+            background-color: white; 
+            color: var(--sonda-dark-green); 
+            border: none; 
+            font-weight: 600;
+        }
+        .btn-logout:hover { background-color: #f0f0f0; color: var(--sonda-dark-green); }
 
         /* Cards de KPIs */
         .kpi-card {
@@ -47,8 +54,9 @@
         }
         .table tbody td { vertical-align: middle; font-size: 0.9rem; color: #444; }
         
-        .contact-info { font-size: 0.8rem; color: #666; }
-        .contact-info i { width: 15px; color: var(--sonda-green); }
+        /* Estilo dos Contatos */
+        .contact-info { font-size: 0.8rem; color: #666; display: block; margin-top: 2px; }
+        .contact-info i { width: 18px; color: var(--sonda-green); text-align: center; }
 
         .btn-action { padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; }
     </style>
@@ -132,13 +140,18 @@
                     totalMetros += parseFloat(p.metragem_total || 0);
                     totalValor += parseFloat(p.valor_total || 0);
 
-                    // Formata Data
                     const dataFormatada = new Date(p.data_criacao).toLocaleDateString('pt-BR');
 
-                    // Formata Contato (Telefone/Email)
+                    // Lógica para mostrar Contato (se existir)
                     let contatoHtml = `<div class="fw-bold text-dark">${p.cliente}</div>`;
-                    if(p.telefone) contatoHtml += `<div class="contact-info"><i class="fas fa-phone"></i> ${p.telefone}</div>`;
-                    if(p.email) contatoHtml += `<div class="contact-info"><i class="fas fa-envelope"></i> ${p.email}</div>`;
+                    
+                    // Verifica se tem telefone ou email e adiciona
+                    if(p.telefone && p.telefone !== "") {
+                        contatoHtml += `<span class="contact-info"><i class="fas fa-phone"></i> ${p.telefone}</span>`;
+                    }
+                    if(p.email && p.email !== "") {
+                        contatoHtml += `<span class="contact-info"><i class="fas fa-envelope"></i> ${p.email}</span>`;
+                    }
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
@@ -156,7 +169,6 @@
                     tbody.appendChild(tr);
                 });
 
-                // Atualiza Cards
                 document.getElementById('kpiCount').innerText = propostas.length;
                 document.getElementById('kpiMetragem').innerText = totalMetros.toFixed(1) + ' m';
                 document.getElementById('kpiValor').innerText = totalValor.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
@@ -179,7 +191,6 @@
             } catch (err) { alert('Erro ao excluir'); }
         }
 
-        // Carrega ao iniciar
         carregarPropostas();
     </script>
 </body>
