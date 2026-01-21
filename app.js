@@ -12,10 +12,10 @@ const SENHA_MESTRA = 'admin123';
 
 // --- CORES OFICIAIS SONDAMAIS ---
 const COLORS = {
-    PRIMARY: '#8CBF26',    // Verde
-    SECONDARY: '#003366',  // Azul
+    PRIMARY: '#8CBF26',    // Verde SondaMais
+    SECONDARY: '#003366',  // Azul Escuro Institucional
     DARK_TEXT: '#333333',
-    LIGHT_TEXT: '#666666',
+    LIGHT_TEXT: '#555555',
     TABLE_HEADER: '#F0F0F0',
     BORDER: '#DDDDDD'
 };
@@ -118,7 +118,7 @@ app.get('/reemitir-pdf/:id', async (req, res) => {
     } catch (err) { res.status(500).send('Erro'); }
 });
 
-// --- GERADOR PDF COMPLETO (PROFISSIONAL) ---
+// --- GERADOR PDF (LAYOUT CORRIGIDO E FIXADO) ---
 function gerarPDFDinamico(res, d) {
     const doc = new PDFDocument({ margin: 40, size: 'A4', bufferPages: true });
     
@@ -141,41 +141,46 @@ function gerarPDFDinamico(res, d) {
 
     doc.moveTo(40, 95).lineTo(555, 95).strokeColor(COLORS.PRIMARY).lineWidth(2).stroke();
 
-    // --- 2. DADOS DO CLIENTE E ORÇAMENTO ---
+    // --- 2. DADOS (LAYOUT DE CAIXAS) ---
     const startY = 110;
+    const boxHeight = 75; // Aumentei um pouco para caber 3 linhas de texto confortavelmente
     
-    // Caixa Esquerda (Info Proposta)
-    doc.rect(40, startY, 150, 70).fillAndStroke('#f9f9f9', COLORS.BORDER);
+    // Caixa Esquerda (Info Orçamento)
+    doc.rect(40, startY, 150, boxHeight).fillAndStroke('#f9f9f9', COLORS.BORDER);
     doc.fillColor(COLORS.SECONDARY).fontSize(9).font('Helvetica-Bold')
        .text('ORÇAMENTO TÉCNICO', 50, startY + 10);
     doc.fillColor('black').font('Helvetica').fontSize(9)
-       .text(`Nº Proposta: ${d.id}/2026`, 50, startY + 28)
-       .text(`Data: ${d.data}`, 50, startY + 42);
+       .text(`Nº Proposta: ${d.id}/2026`, 50, startY + 30)
+       .text(`Data: ${d.data}`, 50, startY + 45);
 
-    // Caixa Direita (Info Cliente - COM TELEFONE E EMAIL)
-    doc.rect(200, startY, 355, 70).strokeColor(COLORS.BORDER).stroke();
+    // Caixa Direita (Info Cliente)
+    doc.rect(200, startY, 355, boxHeight).strokeColor(COLORS.BORDER).stroke();
     doc.fillColor(COLORS.SECONDARY).fontSize(9).font('Helvetica-Bold')
        .text('DADOS DO CLIENTE', 210, startY + 10);
     
-    doc.fillColor('black').font('Helvetica').fontSize(9)
-       .text(`Cliente: ${d.cliente}`, 210, startY + 25, { width: 330, ellipsis: true });
+    doc.fillColor('black').font('Helvetica').fontSize(9);
+    
+    // Linha 1: Nome
+    doc.text(`Cliente: ${d.cliente}`, 210, startY + 28, { width: 330, ellipsis: true });
 
+    // Linha 2: Contato (Se houver)
+    let nextY = startY + 42;
     let contactInfo = [];
     if(d.telefone) contactInfo.push(`Tel: ${d.telefone}`);
     if(d.email) contactInfo.push(`Email: ${d.email}`);
     
     if(contactInfo.length > 0) {
-        doc.text(contactInfo.join(' | '), 210, startY + 38, { width: 330 });
-        doc.text(`Local: ${d.endereco}`, 210, startY + 51, { width: 330, ellipsis: true });
-    } else {
-        doc.text(`Local: ${d.endereco}`, 210, startY + 38, { width: 330, ellipsis: true });
+        doc.text(contactInfo.join('  |  '), 210, nextY, { width: 330, ellipsis: true });
+        nextY += 14; // Pula linha se escreveu contato
     }
 
-    // --- 3. TABELA DE ITENS (LAYOUT GRID) ---
-    doc.y = startY + 90;
+    // Linha 3: Endereço
+    doc.text(`Local: ${d.endereco}`, 210, nextY, { width: 330, ellipsis: true });
+
+    // --- 3. TABELA DE ITENS ---
+    doc.y = startY + boxHeight + 20; // Espaço fixo após as caixas
     const tableTop = doc.y;
     
-    // Cabeçalho da Tabela
     doc.rect(40, tableTop, 515, 20).fill(COLORS.TABLE_HEADER);
     doc.fillColor('black').font('Helvetica-Bold').fontSize(8);
     
@@ -191,7 +196,6 @@ function gerarPDFDinamico(res, d) {
 
     doc.y += 25;
 
-    // Função de Linha (Profissional)
     function drawRow(desc, subtext, qtd, unit, total, isDiscount = false) {
         const rowY = doc.y;
         if (rowY > 700) { doc.addPage(); doc.y = 50; }
@@ -216,7 +220,6 @@ function gerarPDFDinamico(res, d) {
         doc.y = rowY + 30;
     }
 
-    // Renderiza Itens
     drawRow('Sondagem SPT (conf. NBR 6484:2020)', 
             `Estimativa: ${d.furos} furos. Metragem mínima contratada.`, 
             `${d.metragem} m`, 
@@ -244,12 +247,15 @@ function gerarPDFDinamico(res, d) {
     doc.fillColor(COLORS.SECONDARY).font('Helvetica-Bold').fontSize(11)
        .text(`TOTAL: R$ ${d.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 390, doc.y - 18, { width: 160, align: 'right' });
 
-    // --- 4. RODAPÉ TÉCNICO (VOLTOU!) ---
+    // --- 4. RODAPÉ TÉCNICO E NOTAS ---
     doc.y += 40;
-    if (doc.y > 600) doc.addPage();
+    if (doc.y > 580) doc.addPage(); // Garante espaço para o rodapé inteiro
 
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY).text('NOTAS TÉCNICAS E CRITÉRIOS DE PARALISAÇÃO');
+    // Título das Notas
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY).text('NOTAS TÉCNICAS E CRITÉRIOS DE PARALISAÇÃO', 40, doc.y);
     doc.moveDown(0.5);
+    
+    // CORREÇÃO DO ERRO DE CORTE: Definimos explicitamente o X para 40
     doc.font('Helvetica').fontSize(8).fillColor(COLORS.DARK_TEXT);
     const notas = [
         "1. CRITÉRIO DE PARALISAÇÃO: Segue estritamente as recomendações da NBR 6484:2020.",
@@ -257,36 +263,38 @@ function gerarPDFDinamico(res, d) {
         "3. RESPONSABILIDADES DO CLIENTE: Locação dos furos (topografia) e fornecimento de água na obra.",
         "4. FATURAMENTO: Ocorrendo necessidade de avançar a metragem para atender norma técnica, o excedente é faturado automaticamente."
     ];
+    
     for (let nota of notas) { 
-        doc.text(nota, { width: 515, align: 'justify' }); 
+        // AQUI ESTÁ A CORREÇÃO: Forçamos o texto a começar no X=40 e ter largura máxima de 515
+        doc.text(nota, 40, doc.y, { width: 515, align: 'justify' }); 
         doc.moveDown(0.3); 
     }
 
-    // --- 5. CRONOGRAMA E PAGAMENTO (VOLTOU!) ---
+    // --- 5. CRONOGRAMA E PAGAMENTO ---
     doc.moveDown(1);
     const footerY = doc.y;
     
     // Coluna Cronograma
-    doc.rect(40, footerY, 250, 80).strokeColor(COLORS.BORDER).stroke();
+    doc.rect(40, footerY, 250, 75).strokeColor(COLORS.BORDER).stroke();
     doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY)
        .text('CRONOGRAMA PREVISTO', 50, footerY + 10);
     doc.font('Helvetica').fontSize(8).fillColor(COLORS.DARK_TEXT)
        .text('• Início: A combinar (mediante agenda).', 50, footerY + 25)
-       .text('• Execução: Estimado 1 a 2 dias.', 50, footerY + 38)
-       .text('• Relatório: Até 3 dias úteis após campo.', 50, footerY + 51)
-       .text('• Validade da Proposta: 10 dias.', 50, footerY + 64);
+       .text('• Execução: Estimado 1 a 2 dias.', 50, footerY + 37)
+       .text('• Relatório: Até 3 dias úteis após campo.', 50, footerY + 49)
+       .text('• Validade da Proposta: 10 dias.', 50, footerY + 61);
 
     // Coluna Pagamento
-    doc.rect(305, footerY, 250, 80).stroke();
+    doc.rect(305, footerY, 250, 75).stroke();
     doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY)
        .text('CONDIÇÕES DE PAGAMENTO', 315, footerY + 10);
     
     doc.fillColor('#cc0000').text('50% NO ACEITE (Sinal)', 315, footerY + 25);
-    doc.fillColor(COLORS.DARK_TEXT).text('50% NA ENTREGA DO LAUDO', 315, footerY + 38);
+    doc.fillColor(COLORS.DARK_TEXT).text('50% NA ENTREGA DO LAUDO', 315, footerY + 37);
     
     doc.font('Helvetica-Oblique').fontSize(7).fillColor(COLORS.LIGHT_TEXT)
-       .text('Chave PIX e Dados Bancários serão enviados', 315, footerY + 60)
-       .text('no corpo do e-mail de faturamento.', 315, footerY + 70);
+       .text('Chave PIX e Dados Bancários serão enviados', 315, footerY + 55)
+       .text('no corpo do e-mail de faturamento.', 315, footerY + 65);
 
     doc.end();
 }
@@ -311,7 +319,7 @@ const initSQL = `
 
 pool.query(initSQL)
   .then(() => {
-    console.log('>>> SISTEMA ONLINE: DB & PDF RESTAURADOS <<<');
+    console.log('>>> SISTEMA ONLINE: PDF VISUALMENTE CORRIGIDO <<<');
     app.listen(port, () => { console.log(`Rodando na porta ${port}`); });
   })
   .catch(err => { console.error('ERRO NO BANCO:', err); });
