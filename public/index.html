@@ -1,294 +1,217 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SondaSaaS - Portal de Orçamentos</title>
+    <title>SondaSaaS - Gerador de Propostas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
+            --sonda-green: #8CBF26;
+            --sonda-dark-green: #6a9615;
             --sonda-blue: #003366;
-            --sonda-green: #8CBF26; /* Verde Base */
-            --sonda-dark-green: #5a8f0d; /* Verde Escuro para Gradiente */
-            --text-dark: #333;
-            --bg-light: #f8f9fa;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-light);
-            margin: 0;
-            padding: 0;
-            color: var(--text-dark);
-        }
-
-        /* --- NAVBAR --- */
-        .navbar {
-            background-color: white;
-            padding: 10px 5%; 
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .brand {
-            display: flex;
-            align-items: center;
-        }
-        .brand img {
-            height: 55px; 
-            width: auto;
         }
         
-        .btn-admin {
-            text-decoration: none;
-            color: var(--sonda-blue);
-            font-weight: 600;
-            font-size: 0.9rem;
-            border: 2px solid var(--sonda-blue);
-            padding: 8px 20px;
-            border-radius: 50px;
-            transition: all 0.3s;
-        }
-        .btn-admin:hover {
-            background-color: var(--sonda-blue);
-            color: white;
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* --- HERO SECTION --- */
+        /* Hero Section - Faixa Verde */
         .hero {
-            /* Gradiente Verde SondaMais */
             background: linear-gradient(135deg, var(--sonda-green) 0%, var(--sonda-dark-green) 100%);
             color: white;
-            padding: 60px 5% 100px 5%;
+            padding: 60px 0 100px 0;
             text-align: center;
+            margin-bottom: -50px;
         }
+
         .hero h1 {
-            margin: 0;
-            font-size: 2.2rem;
             font-weight: 700;
             text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .hero p {
-            margin-top: 10px;
-            font-size: 1.1rem;
-            opacity: 1;
-            font-weight: 500;
-        }
-        
-        /* Badges de Informação Útil */
-        .info-badges {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 25px;
-            flex-wrap: wrap;
-        }
-        .badge {
-            /* CORREÇÃO AQUI: Fundo Azul Escuro para contrastar com o Verde */
-            background: rgba(0, 51, 102, 0.85); 
-            color: white;
-            padding: 8px 15px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
-            font-weight: 600;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .dot {
-            height: 8px;
-            width: 8px;
-            /* O ponto agora é Verde Aceso para brilhar no fundo azul */
-            background-color: #99cc00; 
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 5px rgba(153, 204, 0, 0.8);
-        }
 
-        /* --- CONTAINER DO FORMULÁRIO --- */
-        .form-container {
-            background-color: white;
-            width: 90%;
-            max-width: 800px;
-            margin: -60px auto 50px auto; 
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        /* Cartão do Formulário */
+        .form-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
             padding: 40px;
-            position: relative;
-        }
-        .form-title {
-            color: var(--sonda-blue);
-            border-bottom: 2px solid #eee;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-            font-size: 1.2rem;
-            font-weight: 700;
+            margin-bottom: 50px;
         }
 
-        /* --- ESTILOS DO FORMULÁRIO --- */
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        .full-width { grid-column: 1 / -1; }
-        
-        label {
-            display: block;
-            margin-bottom: 6px;
-            color: #555;
+        .form-label {
             font-weight: 600;
+            color: var(--sonda-blue);
             font-size: 0.9rem;
         }
-        input[type="text"], input[type="number"] {
-            width: 100%;
+
+        .form-control {
+            border: 1px solid #dee2e6;
             padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 1rem;
-            transition: border-color 0.3s;
+            border-radius: 8px;
         }
-        input:focus {
+
+        .form-control:focus {
             border-color: var(--sonda-green);
-            outline: none;
             box-shadow: 0 0 0 3px rgba(140, 191, 38, 0.2);
         }
 
-        .btn-submit {
-            width: 100%;
-            padding: 18px;
-            background: var(--sonda-blue); 
-            color: white;
+        /* Botão Principal */
+        .btn-primary {
+            background-color: var(--sonda-blue);
             border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 800;
-            cursor: pointer;
-            transition: background 0.3s, transform 0.2s;
-            margin-top: 30px;
+            padding: 15px 30px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            box-shadow: 0 4px 15px rgba(0, 51, 102, 0.3);
+            letter-spacing: 1px;
+            width: 100%;
+            border-radius: 8px;
+            transition: all 0.3s;
         }
-        .btn-submit:hover {
+
+        .btn-primary:hover {
             background-color: #002244;
             transform: translateY(-2px);
         }
-        .btn-submit:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 5%;
+            background: white;
+        }
+        
+        .header-logo {
+            font-weight: bold;
+            color: var(--sonda-blue);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .footer {
-            text-align: center;
-            font-size: 0.8rem;
-            color: #999;
-            padding-bottom: 20px;
+        .badge-status {
+            background-color: var(--sonda-blue);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-left: 5px;
         }
     </style>
 </head>
 <body>
 
-    <nav class="navbar">
-        <div class="brand">
-            <img src="logo.png" alt="SondaMais Engenharia">
+    <div class="header-top">
+        <div class="header-logo">
+            <img src="logo.png" alt="Logo" height="40" onerror="this.style.display='none'">
+            <span>SondaMais Engenharia</span>
         </div>
-        <a href="/admin" class="btn-admin">
-            🔒 Área Restrita
-        </a>
-    </nav>
-
-    <header class="hero">
-        <h1>Portal de Orçamentos Técnicos</h1>
-        <p>Geração instantânea de propostas para sondagem SPT mecanizada.</p>
-        
-        <div class="info-badges">
-            <div class="badge">
-                <span class="dot"></span> Sistema Online
-            </div>
-            <div class="badge">
-                📋 Norma NBR 6484:2020 Vigente
-            </div>
-            <div class="badge">
-                💲 Tabela Base: 2026/Q1
-            </div>
-        </div>
-    </header>
-
-    <div class="form-container">
-        <div class="form-title">Preencha os dados da campanha de sondagem</div>
-        
-        <form id="formOrcamento">
-            <div class="form-grid">
-                <div class="full-width">
-                    <label for="cliente">Solicitante / Empresa:</label>
-                    <input type="text" id="cliente" name="cliente" required placeholder="Ex: Construtora ABC Ltda.">
-                </div>
-                
-                <div class="full-width">
-                    <label for="endereco">Localização da Obra:</label>
-                    <input type="text" id="endereco" name="endereco" required placeholder="Rua, Número, Bairro, Cidade - UF">
-                </div>
-
-                <div>
-                    <label for="furos">Qtd. Pontos de Sondagem:</label>
-                    <input type="number" id="furos" name="furos" required min="1">
-                </div>
-
-                <div>
-                    <label for="metragem">Estimativa Total (m):</label>
-                    <input type="number" id="metragem" name="metragem" required step="0.01">
-                </div>
-
-                <div>
-                    <label for="valor_metro">Valor Unitário (R$/m):</label>
-                    <input type="number" id="valor_metro" name="valor_metro" required step="0.01">
-                </div>
-
-                <div>
-                    <label for="art">Taxa de ART (R$):</label>
-                    <input type="number" id="art" name="art" value="0" step="0.01">
-                </div>
-
-                <div>
-                    <label for="mobilizacao">Mobilização/Logística (R$):</label>
-                    <input type="number" id="mobilizacao" name="mobilizacao" value="0" step="0.01">
-                </div>
-
-                <div>
-                    <label for="desconto">Desconto Comercial (R$):</label>
-                    <input type="number" id="desconto" name="desconto" value="0" step="0.01">
-                </div>
-            </div>
-
-            <button type="submit" class="btn-submit">Gerar Proposta PDF</button>
-        </form>
+        <a href="/login" class="btn btn-outline-dark btn-sm rounded-pill px-4">Área Restrita</a>
     </div>
 
-    <div class="footer">
-        &copy; 2026 SondaMais Engenharia. Sistema de uso interno e parceiros autorizados.
+    <div class="hero">
+        <div class="container">
+            <h1>Portal de Orçamentos Técnicos</h1>
+            <p class="lead opacity-75">Geração instantânea de propostas para sondagem SPT mecanizada.</p>
+            <div class="mt-3">
+                <span class="badge-status">Sistema Online</span>
+                <span class="badge-status">Norma NBR 6484:2020 Vigente</span>
+                <span class="badge-status">Tabela Base: 2026/Q1</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="form-card">
+                    <h5 class="text-secondary mb-4 pb-2 border-bottom">Preencha os dados da campanha de sondagem</h5>
+                    
+                    <form id="orcamentoForm">
+                        <div class="mb-3">
+                            <label class="form-label">Solicitante / Empresa:</label>
+                            <input type="text" name="cliente" class="form-control" placeholder="Ex: Construtora ABC Ltda." required>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Telefone / WhatsApp:</label>
+                                <input type="text" name="telefone" class="form-control" placeholder="(00) 00000-0000">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">E-mail de Contato:</label>
+                                <input type="email" name="email" class="form-control" placeholder="email@cliente.com">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Localização da Obra:</label>
+                            <input type="text" name="endereco" class="form-control" placeholder="Rua, Número, Bairro, Cidade - UF" required>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Qtd. Pontos de Sondagem:</label>
+                                <input type="number" name="furos" class="form-control" value="3" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Estimativa Total (m):</label>
+                                <input type="number" name="metragem" class="form-control" value="40" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Valor Unitário (R$/m):</label>
+                                <input type="number" name="valor_metro" class="form-control" step="0.01" value="55.00">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Taxa de ART (R$):</label>
+                                <input type="number" name="art" class="form-control" step="0.01" value="100.00">
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Mobilização/Logística (R$):</label>
+                                <input type="number" name="mobilizacao" class="form-control" step="0.01" value="150.00">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Desconto Comercial (R$):</label>
+                                <input type="number" name="desconto" class="form-control" step="0.01" value="0.00">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="btnGerar">
+                            GERAR PROPOSTA PDF
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center text-secondary mb-5">
+        <small>&copy; 2026 SondaMais Engenharia. Todos os direitos reservados.</small>
     </div>
 
     <script>
-        document.getElementById('formOrcamento').onsubmit = async (e) => {
+        document.getElementById('orcamentoForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const btn = document.querySelector('.btn-submit');
-            const originalText = btn.textContent;
             
-            btn.textContent = 'Processando e Gerando Documento...';
+            const btn = document.getElementById('btnGerar');
+            const originalText = btn.innerText;
+            btn.innerText = 'GERANDO PDF...';
             btn.disabled = true;
 
+            // Coleta dados do formulário
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
 
             try {
+                // Envia para o backend (API)
                 const response = await fetch('/gerar-proposta', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -296,35 +219,29 @@
                 });
 
                 if (response.ok) {
+                    // Se sucesso, baixa o arquivo
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    
-                    const contentDisposition = response.headers.get('Content-Disposition');
-                    let filename = 'Proposta_SondaMais.pdf';
-                    if (contentDisposition) {
-                        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-                        if (filenameMatch && filenameMatch.length === 2)
-                            filename = filenameMatch[1];
-                    }
-                    a.download = filename;
+                    a.download = `Orcamento_${data.cliente.replace(/\s+/g, '_')}.pdf`;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
-                    window.URL.revokeObjectURL(url);
+                    
+                    // Limpa formulário (opcional)
+                    // e.target.reset(); 
                 } else {
-                    alert("Erro ao gerar proposta. Verifique os dados.");
+                    alert('Erro ao gerar proposta. Verifique os dados.');
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                alert("Erro de conexão com o servidor.");
+                alert('Erro de conexão com o servidor.');
             } finally {
-                btn.textContent = originalText;
+                btn.innerText = originalText;
                 btn.disabled = false;
             }
-        };
+        });
     </script>
-
 </body>
 </html>
