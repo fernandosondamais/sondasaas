@@ -7,7 +7,7 @@ const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// --- CONFIGURAÇÕES ---
+// --- CONFIGURAÇÕES GERAIS ---
 let adminLogado = false; 
 const SENHA_MESTRA = 'admin123';
 
@@ -133,7 +133,7 @@ app.get('/reemitir-pdf/:id', async (req, res) => {
     } catch (err) { res.status(500).send('Erro'); }
 });
 
-// --- FUNÇÃO GERADORA DE PDF (FIXED) ---
+// --- FUNÇÃO GERADORA DE PDF (AJUSTADO: LOGO E HEADER) ---
 function gerarPDFDinamico(res, d) {
     const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
     
@@ -156,9 +156,12 @@ function gerarPDFDinamico(res, d) {
 
     // --- 1. CABEÇALHO ---
     const logoPath = path.join(__dirname, 'public', 'logo.png');
-    if (fs.existsSync(logoPath)) { try { doc.image(logoPath, 30, 30, { width: 70 }); } catch (e) {} }
     
-    let headerTextY = 95; 
+    // [AJUSTE FINAL] Logo subiu para Y=15
+    if (fs.existsSync(logoPath)) { try { doc.image(logoPath, 30, 15, { width: 70 }); } catch (e) {} }
+    
+    // [AJUSTE FINAL] Texto desceu para Y=110
+    let headerTextY = 110; 
     doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.ACCENT).text('Sondamais Engenharia', 30, headerTextY);
     doc.font('Helvetica').fontSize(9).fillColor(COLORS.PRIMARY)
         .text('R. Luís Spiandorelli Neto, 60', 30, headerTextY + 15)
@@ -242,7 +245,7 @@ function gerarPDFDinamico(res, d) {
     doc.fontSize(8).text(`REV0${d.id % 5}`, 30, doc.y + 12); 
     doc.font('Helvetica-Bold').fontSize(16).text(fmtMoney(d.total), 30, doc.y + 15);
 
-    // --- 4. TEXTOS JURÍDICOS (CORRIGIDO) ---
+    // --- 4. TEXTOS JURÍDICOS ---
     doc.moveDown(2); 
     checkPageBreak(100); 
 
