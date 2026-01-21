@@ -10,14 +10,12 @@ const port = process.env.PORT || 3000;
 let adminLogado = false; 
 const SENHA_MESTRA = 'admin123';
 
-// --- CORES OFICIAIS SONDAMAIS ---
+// CORES DO PADRÃO VISUAL DOS PDFs ENVIADOS
 const COLORS = {
-    PRIMARY: '#8CBF26',    // Verde SondaMais
-    SECONDARY: '#003366',  // Azul Escuro Institucional
-    DARK_TEXT: '#333333',
-    LIGHT_TEXT: '#555555',
-    TABLE_HEADER: '#F0F0F0',
-    BORDER: '#DDDDDD'
+    PRIMARY: '#444444',    // Cinza Escuro (Texto)
+    ACCENT: '#6a9615',     // Verde SondaMais (Logos/Detalhes)
+    BORDER: '#000000',     // Preto (Bordas finas)
+    BG_HEADER: '#ffffff'
 };
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -118,188 +116,182 @@ app.get('/reemitir-pdf/:id', async (req, res) => {
     } catch (err) { res.status(500).send('Erro'); }
 });
 
-// --- GERADOR PDF (LAYOUT CORRIGIDO E FIXADO) ---
+// --- GERADOR PDF IDÊNTICO AO MODELO FÍSICO ---
 function gerarPDFDinamico(res, d) {
-    const doc = new PDFDocument({ margin: 40, size: 'A4', bufferPages: true });
+    const doc = new PDFDocument({ margin: 30, size: 'A4' });
     
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Orcamento_${d.id}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Proposta_${d.id}.pdf"`);
     doc.pipe(res);
 
-    // --- 1. CABEÇALHO ---
+    // 1. HEADER (Lado Esquerdo: Logo e Endereço)
     const logoPath = path.join(__dirname, 'public', 'logo.png');
     if (fs.existsSync(logoPath)) {
-        try { doc.image(logoPath, 40, 30, { width: 110 }); } catch (e) {}
+        try { doc.image(logoPath, 30, 30, { width: 80 }); } catch (e) {}
     }
 
-    doc.font('Helvetica-Bold').fontSize(14).fillColor(COLORS.SECONDARY)
-       .text('SONDAMAIS ENGENHARIA', 200, 35, { align: 'right' });
-    doc.font('Helvetica').fontSize(8).fillColor(COLORS.LIGHT_TEXT)
-       .text('R. Luís Spiandorelli Neto, 60 - Valinhos/SP', 200, 53, { align: 'right' })
-       .text('CEP: 13271-570 | Tel: (19) 99800-2260', 200, 65, { align: 'right' })
-       .text('contato@sondamais.com.br', 200, 77, { align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.PRIMARY).text('Sondamais', 30, 85);
+    doc.font('Helvetica').fontSize(9).fillColor(COLORS.PRIMARY)
+       .text('R. Luís Spiandorelli Neto, 60', 30, 100)
+       .text('Valinhos, São Paulo, 13271-570', 30, 112)
+       .text('(19) 99800-2260', 30, 124)
+       .text('contato@sondamais.com.br', 30, 136);
 
-    doc.moveTo(40, 95).lineTo(555, 95).strokeColor(COLORS.PRIMARY).lineWidth(2).stroke();
+    // 2. HEADER (Lado Direito: Dados da Proposta - Box Cinza/Branco)
+    const boxX = 300;
+    const boxY = 40;
+    
+    // Título "Orçamento"
+    doc.font('Helvetica-Bold').fontSize(14).text('Orçamento', boxX, boxY);
+    
+    // Grid de Informações
+    doc.font('Helvetica-Bold').fontSize(9);
+    doc.text('Data', boxX, boxY + 25);
+    doc.font('Helvetica').text(d.data, boxX, boxY + 37);
 
-    // --- 2. DADOS (LAYOUT DE CAIXAS) ---
-    const startY = 110;
-    const boxHeight = 75; // Aumentei um pouco para caber 3 linhas de texto confortavelmente
-    
-    // Caixa Esquerda (Info Orçamento)
-    doc.rect(40, startY, 150, boxHeight).fillAndStroke('#f9f9f9', COLORS.BORDER);
-    doc.fillColor(COLORS.SECONDARY).fontSize(9).font('Helvetica-Bold')
-       .text('ORÇAMENTO TÉCNICO', 50, startY + 10);
-    doc.fillColor('black').font('Helvetica').fontSize(9)
-       .text(`Nº Proposta: ${d.id}/2026`, 50, startY + 30)
-       .text(`Data: ${d.data}`, 50, startY + 45);
+    doc.font('Helvetica-Bold').text('Número da Proposta', boxX + 150, boxY + 25); // Lado a lado
+    doc.font('Helvetica').text(`${d.id}/2026`, boxX + 150, boxY + 37);
 
-    // Caixa Direita (Info Cliente)
-    doc.rect(200, startY, 355, boxHeight).strokeColor(COLORS.BORDER).stroke();
-    doc.fillColor(COLORS.SECONDARY).fontSize(9).font('Helvetica-Bold')
-       .text('DADOS DO CLIENTE', 210, startY + 10);
-    
-    doc.fillColor('black').font('Helvetica').fontSize(9);
-    
-    // Linha 1: Nome
-    doc.text(`Cliente: ${d.cliente}`, 210, startY + 28, { width: 330, ellipsis: true });
+    doc.font('Helvetica-Bold').text('Pagamento', boxX, boxY + 55);
+    doc.font('Helvetica').text('50% SINAL ENTRADA E RESTANTE NA ENTREGA', boxX, boxY + 67, {width: 250});
+    doc.text('DO LAUDO - TRANSFERÊNCIA BANCÁRIA OU PIX', boxX, boxY + 79);
 
-    // Linha 2: Contato (Se houver)
-    let nextY = startY + 42;
-    let contactInfo = [];
-    if(d.telefone) contactInfo.push(`Tel: ${d.telefone}`);
-    if(d.email) contactInfo.push(`Email: ${d.email}`);
-    
-    if(contactInfo.length > 0) {
-        doc.text(contactInfo.join('  |  '), 210, nextY, { width: 330, ellipsis: true });
-        nextY += 14; // Pula linha se escreveu contato
-    }
+    doc.font('Helvetica-Bold').text('Elaborado por:', boxX, boxY + 95);
+    doc.font('Helvetica').text('Eng. Fabiano Rielli', boxX, boxY + 107);
 
-    // Linha 3: Endereço
-    doc.text(`Local: ${d.endereco}`, 210, nextY, { width: 330, ellipsis: true });
+    // Dados do Cliente (Abaixo do elaborado)
+    const clienteY = boxY + 130;
+    doc.font('Helvetica-Bold').text('Solicitante:', boxX, clienteY);
+    doc.font('Helvetica').text(d.cliente, boxX + 55, clienteY);
+    if(d.telefone) doc.text(`Tel: ${d.telefone}`, boxX, clienteY + 12);
+    
+    doc.font('Helvetica-Bold').text('Endereço:', boxX, clienteY + 24);
+    doc.font('Helvetica').text(d.endereco, boxX + 50, clienteY + 24, {width: 200});
 
-    // --- 3. TABELA DE ITENS ---
-    doc.y = startY + boxHeight + 20; // Espaço fixo após as caixas
-    const tableTop = doc.y;
-    
-    doc.rect(40, tableTop, 515, 20).fill(COLORS.TABLE_HEADER);
-    doc.fillColor('black').font('Helvetica-Bold').fontSize(8);
-    
-    const colDesc = 50;
+    // 3. TABELA DE ITENS (Igual ao modelo PDF)
+    const tableTop = 200;
+    const colDesc = 30;
     const colQtd = 330;
-    const colUnit = 390;
-    const colTotal = 470;
+    const colUnit = 380;
+    const colTotal = 460;
 
-    doc.text('DESCRIÇÃO DOS SERVIÇOS', colDesc, tableTop + 6);
-    doc.text('QTD.', colQtd, tableTop + 6);
-    doc.text('UNIT. (R$)', colUnit, tableTop + 6, { width: 60, align: 'right' });
-    doc.text('TOTAL (R$)', colTotal, tableTop + 6, { width: 80, align: 'right' });
+    // Cabeçalho da Tabela
+    doc.rect(30, tableTop, 535, 20).fill('#f0f0f0');
+    doc.fillColor('black').font('Helvetica-Bold').fontSize(9);
+    doc.text('Descrição', colDesc + 5, tableTop + 6);
+    doc.text('Qtd', colQtd, tableTop + 6);
+    doc.text('Preço unitário', colUnit, tableTop + 6);
+    doc.text('Preço total', colTotal, tableTop + 6);
 
-    doc.y += 25;
+    let y = tableTop + 25;
 
-    function drawRow(desc, subtext, qtd, unit, total, isDiscount = false) {
-        const rowY = doc.y;
-        if (rowY > 700) { doc.addPage(); doc.y = 50; }
-
-        doc.font('Helvetica').fontSize(9).fillColor(isDiscount ? '#cc0000' : COLORS.DARK_TEXT);
-        doc.text(desc, colDesc, rowY, { width: 270 });
+    // Função de Linha
+    function drawRow(desc, subtext, qtd, unit, total) {
+        doc.font('Helvetica-Bold').fontSize(9).text(desc, colDesc, y);
         
-        if (subtext) {
-            doc.fontSize(7).fillColor(COLORS.LIGHT_TEXT)
-               .text(subtext, colDesc, rowY + 12, { width: 270 });
-            doc.fontSize(9);
+        let height = 15;
+        if(subtext) {
+            doc.font('Helvetica').fontSize(8).text(subtext, colDesc, y + 12, {width: 290});
+            height = 35; // Altura maior para texto de descrição
         }
-
-        doc.fillColor(isDiscount ? '#cc0000' : COLORS.DARK_TEXT);
-        doc.text(qtd, colQtd, rowY);
-        doc.text(unit, colUnit, rowY, { width: 60, align: 'right' });
-        doc.text(total, colTotal, rowY, { width: 80, align: 'right' });
-
-        doc.moveTo(40, rowY + 25).lineTo(555, rowY + 25)
-           .strokeColor('#EEEEEE').lineWidth(0.5).stroke();
         
-        doc.y = rowY + 30;
+        doc.font('Helvetica').fontSize(9);
+        doc.text(qtd, colQtd, y);
+        doc.text(unit, colUnit, y);
+        doc.text(total, colTotal, y);
+        
+        y += height;
+        doc.moveTo(30, y).lineTo(565, y).strokeColor('#eeeeee').lineWidth(1).stroke();
+        y += 5;
     }
 
-    drawRow('Sondagem SPT (conf. NBR 6484:2020)', 
-            `Estimativa: ${d.furos} furos. Metragem mínima contratada.`, 
-            `${d.metragem} m`, 
-            d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2}), 
-            d.subtotal_sondagem.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
+    // Itens
+    drawRow('Sondagem SPT', 
+            '(furos de até 20 metros profundidade ou norma 6484:2020). Será cobrado o metro excedente, caso ultrapassado metragem mínima.', 
+            d.furos, '', '');
 
-    if (d.mobilizacao > 0) 
-        drawRow('Mobilização e Desmobilização', null, '1 vb', 
-            d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2}), 
-            d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
+    drawRow('*Metragem mínima (metros lineares)', 
+            null, 
+            d.metragem, 
+            `R$ ${d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 
+            `R$ ${d.subtotal_sondagem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
 
-    if (d.art > 0) 
-        drawRow('Emissão de ART (Taxa CREA)', null, '1 un', 
-            d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2}), 
-            d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
+    drawRow('ART', null, '1', 
+            `R$ ${d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 
+            `R$ ${d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
 
-    if (d.desconto > 0) 
+    if(d.mobilizacao > 0) {
+        drawRow('Mobilização (combustível, alimentação, pedágio)', null, 'L', 
+                `R$ ${d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 
+                `R$ ${d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
+    }
+
+    if(d.desconto > 0) {
         drawRow('Desconto Comercial', null, '-', 
-            '-', 
-            `- ${d.desconto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, true);
-
-    // Total Geral
-    doc.moveDown(0.5);
-    doc.rect(380, doc.y, 175, 25).fill('#f0f0f0');
-    doc.fillColor(COLORS.SECONDARY).font('Helvetica-Bold').fontSize(11)
-       .text(`TOTAL: R$ ${d.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 390, doc.y - 18, { width: 160, align: 'right' });
-
-    // --- 4. RODAPÉ TÉCNICO E NOTAS ---
-    doc.y += 40;
-    if (doc.y > 580) doc.addPage(); // Garante espaço para o rodapé inteiro
-
-    // Título das Notas
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY).text('NOTAS TÉCNICAS E CRITÉRIOS DE PARALISAÇÃO', 40, doc.y);
-    doc.moveDown(0.5);
-    
-    // CORREÇÃO DO ERRO DE CORTE: Definimos explicitamente o X para 40
-    doc.font('Helvetica').fontSize(8).fillColor(COLORS.DARK_TEXT);
-    const notas = [
-        "1. CRITÉRIO DE PARALISAÇÃO: Segue estritamente as recomendações da NBR 6484:2020.",
-        `2. METRAGEM EXCEDENTE: Caso a profundidade ultrapasse ${d.metragem}m, será cobrado R$ ${d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2})} por metro adicional.`,
-        "3. RESPONSABILIDADES DO CLIENTE: Locação dos furos (topografia) e fornecimento de água na obra.",
-        "4. FATURAMENTO: Ocorrendo necessidade de avançar a metragem para atender norma técnica, o excedente é faturado automaticamente."
-    ];
-    
-    for (let nota of notas) { 
-        // AQUI ESTÁ A CORREÇÃO: Forçamos o texto a começar no X=40 e ter largura máxima de 515
-        doc.text(nota, 40, doc.y, { width: 515, align: 'justify' }); 
-        doc.moveDown(0.3); 
+                '-', 
+                `- R$ ${d.desconto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
     }
 
-    // --- 5. CRONOGRAMA E PAGAMENTO ---
-    doc.moveDown(1);
-    const footerY = doc.y;
+    // 4. TOTAL (Box destacado na esquerda igual ao modelo)
+    y += 10;
+    doc.font('Helvetica-Bold').fontSize(10).text('SONDAMAIS', 30, y);
+    doc.fontSize(8).text(`REV0${d.id % 5}`, 30, y + 12); // Simula revisão
     
-    // Coluna Cronograma
-    doc.rect(40, footerY, 250, 75).strokeColor(COLORS.BORDER).stroke();
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY)
-       .text('CRONOGRAMA PREVISTO', 50, footerY + 10);
-    doc.font('Helvetica').fontSize(8).fillColor(COLORS.DARK_TEXT)
-       .text('• Início: A combinar (mediante agenda).', 50, footerY + 25)
-       .text('• Execução: Estimado 1 a 2 dias.', 50, footerY + 37)
-       .text('• Relatório: Até 3 dias úteis após campo.', 50, footerY + 49)
-       .text('• Validade da Proposta: 10 dias.', 50, footerY + 61);
+    doc.font('Helvetica-Bold').fontSize(14).text(`R$ ${d.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 30, y + 25);
+    doc.font('Helvetica').fontSize(8).text('Total base à vista, no boleto ou pix', 30, y + 40);
 
-    // Coluna Pagamento
-    doc.rect(305, footerY, 250, 75).stroke();
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY)
-       .text('CONDIÇÕES DE PAGAMENTO', 315, footerY + 10);
+    // 5. TEXTO JURÍDICO DA NORMA (O mais importante)
+    y += 60;
+    doc.font('Helvetica').fontSize(8).text(
+        "Na ausência do fornecimento do critério de paralisação por parte da contratante ou seu preposto, o CRITÉRIO DE PARALIZAÇÃO DOS ENSAIOS SEGUE AS RECOMENDAÇÕES DA NBR 6484:2020, ITEM 5.2.4 OU 6.2.4.",
+        30, y, {width: 535, align: 'justify'}
+    );
     
-    doc.fillColor('#cc0000').text('50% NO ACEITE (Sinal)', 315, footerY + 25);
-    doc.fillColor(COLORS.DARK_TEXT).text('50% NA ENTREGA DO LAUDO', 315, footerY + 37);
+    y += 25;
+    doc.font('Helvetica-Bold').text(
+        "** Conforme critério de paralisação de sondagem-SPT (Norma NBR 6484:2020 - vide abaixo), a profundidade atingida pode sofrer variação. Portanto, caso ultrapasse a *metragem mínima será cobrado R$ " + d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + " por metro excedente da sondagem.",
+        30, y, {width: 535, align: 'justify'}
+    );
+
+    // Texto da Norma (Itens a, b, c)
+    y += 35;
+    doc.font('Helvetica').text(
+        "5.2.4.2 Na ausência do fornecimento do critério de paralisação por parte da contratante ou de seu preposto, as sondagens devem avançar até que seja atingido um dos seguintes critérios:",
+        30, y, {width: 535}
+    );
+    y += 12;
+    doc.text("a) avanço da sondagem até a profundidade na qual tenham sido obtidos 10 m de resultados consecutivos indicando N iguais ou superiores a 25 golpes;", 40, y, {width: 525});
+    y += 12;
+    doc.text("b) avanço da sondagem até a profundidade na qual tenham sido obtidos 8 m de resultados consecutivos indicando N iguais ou superiores a 30 golpes;", 40, y + 10, {width: 525});
+    y += 12;
+    doc.text("c) avanço da sondagem até a profundidade na qual tenham sido obtidos 6 m de resultados consecutivos indicando N iguais ou superiores a 35 golpes;", 40, y + 20, {width: 525});
+
+    // 6. CRONOGRAMA (Tabela Final)
+    y += 45;
+    if(y > 700) { doc.addPage(); y = 50; }
     
-    doc.font('Helvetica-Oblique').fontSize(7).fillColor(COLORS.LIGHT_TEXT)
-       .text('Chave PIX e Dados Bancários serão enviados', 315, footerY + 55)
-       .text('no corpo do e-mail de faturamento.', 315, footerY + 65);
+    doc.font('Helvetica-Bold').fontSize(10).text('CRONOGRAMA', 30, y);
+    y += 15;
+
+    // Linhas do Cronograma
+    const cronoData = [
+        ['Previsão de execução da sondagem', '1 a 2 dias'],
+        ['Previsão de início sujeito à alteração', 'A combinar'],
+        ['Entrega do relatório de Sondagem', 'Em até 3 dias, após a execução do serviço'],
+        ['Validade da proposta', '10 dias']
+    ];
+
+    cronoData.forEach(row => {
+        doc.rect(30, y, 535, 20).stroke();
+        doc.font('Helvetica').fontSize(9).text(row[0], 35, y + 6);
+        doc.text(row[1], 300, y + 6);
+        y += 20;
+    });
 
     doc.end();
 }
 
-// --- MIGRATION (Continua aqui para segurança) ---
+// --- MIGRATION (Mantida para segurança) ---
 const initSQL = `
   CREATE TABLE IF NOT EXISTS propostas (
     id SERIAL PRIMARY KEY,
@@ -319,7 +311,7 @@ const initSQL = `
 
 pool.query(initSQL)
   .then(() => {
-    console.log('>>> SISTEMA ONLINE: PDF VISUALMENTE CORRIGIDO <<<');
+    console.log('>>> SISTEMA ONLINE: PDF PADRÃO ENGENHARIA ATIVADO <<<');
     app.listen(port, () => { console.log(`Rodando na porta ${port}`); });
   })
   .catch(err => { console.error('ERRO NO BANCO:', err); });
