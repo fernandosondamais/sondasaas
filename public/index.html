@@ -5,254 +5,178 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SondaSaaS - Gerador de Propostas</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        :root {
-            --sonda-green: #8CBF26;
-            --sonda-dark-green: #6a9615;
-            --sonda-blue: #003366;
-        }
+        :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
-        body {
-            background-color: #f4f6f9;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        /* --- AJUSTE SOLICITADO: ÁREA VERDE COMPACTA --- */
-        .hero {
-            background: linear-gradient(135deg, var(--sonda-green) 0%, var(--sonda-dark-green) 100%);
+        .header-sonda { background-color: white; border-bottom: 4px solid var(--sonda-green); padding: 20px 0; margin-bottom: 30px; }
+        .btn-sonda { background-color: var(--sonda-green); color: white; font-weight: bold; border: none; padding: 12px 30px; }
+        .btn-sonda:hover { background-color: #567a10; color: white; }
+        
+        /* Card de Totais Flutuante (Desktop) */
+        .total-card {
+            background: var(--sonda-dark);
             color: white;
-            /* Reduzi o padding de 60px/100px para 30px/60px */
-            padding: 30px 0 60px 0; 
-            text-align: center;
-            /* Reduzi a margem negativa para puxar menos o card */
-            margin-bottom: -40px; 
+            position: sticky;
+            top: 20px;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-
-        .hero h1 {
-            font-weight: 700;
-            font-size: 1.8rem; /* Fonte um pouco menor */
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 5px;
-        }
-        
-        .hero p {
-            font-size: 1rem;
-            opacity: 0.9;
-            margin-bottom: 10px;
-        }
-
-        .badge-status {
-            background-color: rgba(255,255,255,0.2);
-            color: white;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            margin: 0 2px;
-            backdrop-filter: blur(5px);
-        }
-
-        /* Cartão do Formulário */
-        .form-card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-            padding: 30px;
-            margin-bottom: 40px;
-        }
-
-        .form-label {
-            font-weight: 600;
-            color: var(--sonda-blue);
-            font-size: 0.85rem;
-            margin-bottom: 4px;
-        }
-
-        .form-control {
-            border: 1px solid #dee2e6;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.95rem;
-        }
-
-        .form-control:focus {
-            border-color: var(--sonda-green);
-            box-shadow: 0 0 0 3px rgba(140, 191, 38, 0.2);
-        }
-
-        .btn-primary {
-            background-color: var(--sonda-blue);
-            border: none;
-            padding: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            width: 100%;
-            border-radius: 6px;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
-
-        .btn-primary:hover {
-            background-color: #002244;
-            transform: translateY(-1px);
-        }
-
-        .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 5%;
-            background: white;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .header-logo {
-            font-weight: bold;
-            color: var(--sonda-blue);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-        }
+        .total-highlight { color: #a3d646; font-size: 1.8rem; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="header-top">
-        <div class="header-logo">
-            <img src="logo.png" alt="Logo" height="35" onerror="this.style.display='none'">
-            <span>SondaMais Engenharia</span>
-        </div>
-        <a href="/login" class="btn btn-outline-dark btn-sm rounded-pill px-3" style="font-size: 0.8rem;">Área Restrita</a>
-    </div>
-
-    <div class="hero">
-        <div class="container">
-            <h1>Portal de Orçamentos Técnicos</h1>
-            <p>Geração instantânea de propostas para sondagem SPT mecanizada.</p>
-            <div class="d-flex justify-content-center gap-2">
-                <span class="badge-status">Online</span>
-                <span class="badge-status">NBR 6484:2020</span>
-                <span class="badge-status">v1.2</span>
+    <header class="header-sonda shadow-sm">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <img src="logo.png" alt="Logo" height="50" onerror="this.style.display='none'"> 
+                <div>
+                    <h4 class="m-0 fw-bold" style="color: var(--sonda-dark);">SondaSaaS</h4>
+                    <small class="text-muted">Gerador de Orçamentos REV00</small>
+                </div>
             </div>
+            <a href="/login" class="btn btn-outline-secondary btn-sm"><i class="bi bi-lock"></i> Área Admin</a>
         </div>
-    </div>
+    </header>
 
-    <div class="container">
-        <div class="row justify-content-center">
+    <div class="container pb-5">
+        <div class="row">
             <div class="col-lg-8">
-                <div class="form-card">
-                    <h6 class="text-secondary mb-3 pb-2 border-bottom text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
-                        Dados da Campanha
-                    </h6>
+                <div class="card shadow border-0">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="m-0 fw-bold" style="color: var(--sonda-green);"><i class="bi bi-file-earmark-text me-2"></i>Dados da Proposta</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <form id="propostaForm" action="/gerar-proposta" method="POST">
+                            
+                            <h6 class="text-muted border-bottom pb-2 mb-3">Informações do Cliente</h6>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Nome do Cliente / Empresa</label>
+                                    <input type="text" name="cliente" class="form-control bg-light" required placeholder="Ex: João da Silva">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Endereço da Obra</label>
+                                    <input type="text" name="endereco" class="form-control bg-light" required placeholder="Rua, Número, Cidade">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Telefone / WhatsApp</label>
+                                    <input type="text" name="telefone" class="form-control bg-light" placeholder="(00) 00000-0000">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">E-mail</label>
+                                    <input type="email" name="email" class="form-control bg-light" placeholder="email@cliente.com">
+                                </div>
+                            </div>
+
+                            <h6 class="text-muted border-bottom pb-2 mb-3 mt-4">Dados Técnicos (Cálculo Automático)</h6>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Qtd. Furos</label>
+                                    <input type="number" id="furos" name="furos" class="form-control calc-input" required value="1">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Metragem Total (m)</label>
+                                    <input type="number" id="metragem" name="metragem" class="form-control calc-input" required step="0.1" placeholder="Ex: 40">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Valor por Metro (R$)</label>
+                                    <input type="number" id="valor_metro" name="valor_metro" class="form-control calc-input" required step="0.01" placeholder="Ex: 55.00">
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label">Taxa ART (R$)</label>
+                                    <input type="number" id="art" name="art" class="form-control calc-input" value="100.00">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Mobilização (R$)</label>
+                                    <input type="number" id="mobilizacao" name="mobilizacao" class="form-control calc-input" value="150.00">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label text-danger">Desconto (R$)</label>
+                                    <input type="number" id="desconto" name="desconto" class="form-control calc-input text-danger" value="0">
+                                </div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-sonda btn-lg shadow-sm">
+                                    <i class="bi bi-check-circle-fill me-2"></i>GERAR PROPOSTA (PDF)
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 mt-4 mt-lg-0">
+                <div class="total-card">
+                    <h5 class="border-bottom pb-2 mb-3"><i class="bi bi-calculator me-2"></i>Resumo de Valores</h5>
                     
-                    <form id="orcamentoForm">
-                        <div class="mb-3">
-                            <label class="form-label">Solicitante / Empresa:</label>
-                            <input type="text" name="cliente" class="form-control" placeholder="Nome do Cliente ou Razão Social" required>
-                        </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Sondagem:</span>
+                        <span id="previewSondagem">R$ 0,00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Taxas (ART + Mob):</span>
+                        <span id="previewTaxas">R$ 0,00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3 text-danger">
+                        <span>Descontos:</span>
+                        <span id="previewDesconto">- R$ 0,00</span>
+                    </div>
+                    
+                    <div class="border-top pt-3">
+                        <small class="d-block text-white-50">VALOR TOTAL FINAL</small>
+                        <div id="previewTotal" class="total-highlight">R$ 0,00</div>
+                    </div>
+                </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Telefone / WhatsApp:</label>
-                                <input type="text" name="telefone" class="form-control" placeholder="(00) 00000-0000">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">E-mail de Contato:</label>
-                                <input type="email" name="email" class="form-control" placeholder="contato@cliente.com">
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Localização da Obra:</label>
-                            <input type="text" name="endereco" class="form-control" placeholder="Endereço completo da obra" required>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Qtd. Pontos:</label>
-                                <input type="number" name="furos" class="form-control" value="3" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Total Estimado (m):</label>
-                                <input type="number" name="metragem" class="form-control" value="40" required>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Valor Unitário (R$/m):</label>
-                                <input type="number" name="valor_metro" class="form-control" step="0.01" value="55.00">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Taxa ART (R$):</label>
-                                <input type="number" name="art" class="form-control" step="0.01" value="100.00">
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label">Mobilização (R$):</label>
-                                <input type="number" name="mobilizacao" class="form-control" step="0.01" value="150.00">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Desconto (R$):</label>
-                                <input type="number" name="desconto" class="form-control" step="0.01" value="0.00">
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary" id="btnGerar">
-                            Gerar Proposta PDF
-                        </button>
-                    </form>
+                <div class="alert alert-light mt-3 border shadow-sm small">
+                    <i class="bi bi-info-circle-fill text-primary me-1"></i>
+                    O cálculo é atualizado automaticamente conforme você digita.
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="text-center text-secondary mb-4" style="font-size: 0.8rem;">
-        &copy; 2026 SondaMais Engenharia.
-    </div>
-
     <script>
-        document.getElementById('orcamentoForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const btn = document.getElementById('btnGerar');
-            const originalText = btn.innerText;
-            btn.innerText = 'Processando...';
-            btn.disabled = true;
-
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch('/gerar-proposta', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `Orcamento_${data.cliente.replace(/\s+/g, '_')}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                } else {
-                    alert('Erro ao gerar proposta. Verifique os dados.');
-                }
-            } catch (error) {
-                console.error('Erro:', error);
-                alert('Erro de conexão com o servidor.');
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
+        // Seleciona todos os campos que afetam o preço
+        const inputs = document.querySelectorAll('.calc-input');
+        
+        // Adiciona um "ouvinte" em cada campo para disparar quando digitar
+        inputs.forEach(input => {
+            input.addEventListener('input', calcularTotais);
         });
+
+        function calcularTotais() {
+            // Pega os valores (ou 0 se estiver vazio)
+            const metragem = parseFloat(document.getElementById('metragem').value) || 0;
+            const valorMetro = parseFloat(document.getElementById('valor_metro').value) || 0;
+            const art = parseFloat(document.getElementById('art').value) || 0;
+            const mobilizacao = parseFloat(document.getElementById('mobilizacao').value) || 0;
+            const desconto = parseFloat(document.getElementById('desconto').value) || 0;
+
+            // Cálculos
+            const totalSondagem = metragem * valorMetro;
+            const totalTaxas = art + mobilizacao;
+            const totalGeral = totalSondagem + totalTaxas - desconto;
+
+            // Atualiza a tela (Formatação BRL)
+            const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            document.getElementById('previewSondagem').innerText = fmt(totalSondagem);
+            document.getElementById('previewTaxas').innerText = fmt(totalTaxas);
+            document.getElementById('previewDesconto').innerText = '- ' + fmt(desconto);
+            document.getElementById('previewTotal').innerText = fmt(totalGeral);
+        }
+
+        // Roda uma vez ao carregar para mostrar os valores iniciais (ART/Mob)
+        calcularTotais();
     </script>
 </body>
 </html>
