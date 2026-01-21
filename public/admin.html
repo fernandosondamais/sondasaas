@@ -9,7 +9,7 @@
     
     <style>
         :root {
-            --sonda-green: #6a9615; /* Verde da Identidade Visual */
+            --sonda-green: #6a9615; 
             --sonda-dark: #444444;
         }
         body { background-color: #f8f9fa; }
@@ -45,9 +45,14 @@
             <span class="navbar-brand">
                 <i class="bi bi-building-gear me-2"></i>SondaSaaS <small class="fw-light">| Painel Administrativo</small>
             </span>
-            <a href="/logout" class="btn btn-outline-light btn-sm">
-                <i class="bi bi-box-arrow-right"></i> Sair
-            </a>
+            <div class="d-flex gap-2">
+                <button onclick="exportarCSV()" class="btn btn-light btn-sm fw-bold text-success">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Baixar Relatório
+                </button>
+                <a href="/logout" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-box-arrow-right"></i> Sair
+                </a>
+            </div>
         </div>
     </nav>
 
@@ -87,12 +92,15 @@
     </div>
 
     <script>
+        let todasPropostas = []; // Armazena os dados para exportação
+
         // 1. Carregar Dados ao Abrir a Página
         fetch('/api/propostas')
             .then(res => res.json())
             .then(data => {
+                todasPropostas = data; // Salva na memória para o CSV
                 const tbody = document.querySelector('#tabelaPropostas tbody');
-                tbody.innerHTML = ''; // Limpa o "Carregando..."
+                tbody.innerHTML = ''; 
 
                 if(data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-muted">Nenhuma proposta encontrada.</td></tr>';
@@ -101,11 +109,7 @@
                 
                 data.forEach(p => {
                     const tr = document.createElement('tr');
-                    
-                    // Formata Data
                     const dataFmt = new Date(p.data_criacao).toLocaleDateString('pt-BR');
-                    
-                    // Formata Moeda
                     const valorFmt = parseFloat(p.valor_total).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
 
                     tr.innerHTML = `
@@ -133,34 +137,54 @@
                 document.querySelector('#tabelaPropostas tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar propostas.</td></tr>';
             });
 
-        // 2. Função de Filtro em Tempo Real (A Mágica da Busca)
+        // 2. Busca em Tempo Real
         document.getElementById('inputBusca').addEventListener('keyup', function() {
             const termo = this.value.toLowerCase();
             const linhas = document.querySelectorAll('#tabelaPropostas tbody tr');
-
             linhas.forEach(linha => {
-                const textoDaLinha = linha.innerText.toLowerCase();
-                
-                if(textoDaLinha.includes(termo)) {
-                    linha.style.display = ''; // Mostra a linha
-                } else {
-                    linha.style.display = 'none'; // Esconde a linha
-                }
+                const texto = linha.innerText.toLowerCase();
+                linha.style.display = texto.includes(termo) ? '' : 'none';
             });
         });
 
-        // 3. Função de Deletar
+        // 3. Deletar
         function deletar(id) {
-            if(confirm('Tem certeza que deseja excluir esta proposta permanentemente?')) {
-                fetch('/api/propostas/' + id, { method: 'DELETE' })
-                    .then(res => {
-                        if(res.ok) {
-                            location.reload();
-                        } else {
-                            alert('Erro ao excluir.');
-                        }
-                    });
+            if(confirm('Tem certeza? Essa ação é irreversível.')) {
+                fetch('/api/propostas/' + id, { method: 'DELETE' }).then(res => {
+                    if(res.ok) location.reload();
+                });
             }
+        }
+
+        // 4. EXPORTAR RELATÓRIO (CSV/EXCEL) - NOVO!
+        function exportarCSV() {
+            if (todasPropostas.length === 0) {
+                alert("Não há dados para exportar.");
+                return;
+            }
+
+            // Cabeçalho do CSV
+            let csv = "ID;Data;Cliente;Email;Telefone;Metragem;Furos;Total (R$)\n";
+
+            // Linhas
+            todasPropostas.forEach(p => {
+                const dataFmt = new Date(p.data_criacao).toLocaleDateString('pt-BR');
+                const totalFmt = parseFloat(p.valor_total).toFixed(2).replace('.', ',');
+                
+                // Trata campos nulos e adiciona ao CSV
+                csv += `${p.id};${dataFmt};${p.cliente};${p.email || ''};${p.telefone || ''};${p.metragem_total};${p.furos};${totalFmt}\n`;
+            });
+
+            // Cria o arquivo invisível para download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Relatorio_SondaSaaS_${new Date().toLocaleDateString('pt-BR')}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
