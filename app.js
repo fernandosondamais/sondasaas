@@ -10,10 +10,14 @@ const port = process.env.PORT || 3000;
 let adminLogado = false; 
 const SENHA_MESTRA = 'admin123';
 
-// Cores SondaMais
+// --- CORES OFICIAIS SONDAMAIS ---
 const COLORS = {
-    PRIMARY: '#8CBF26', SECONDARY: '#003366', DARK_TEXT: '#333333',
-    LIGHT_TEXT: '#666666', TABLE_HEADER: '#F0F0F0', BORDER: '#DDDDDD'
+    PRIMARY: '#8CBF26',    // Verde
+    SECONDARY: '#003366',  // Azul
+    DARK_TEXT: '#333333',
+    LIGHT_TEXT: '#666666',
+    TABLE_HEADER: '#F0F0F0',
+    BORDER: '#DDDDDD'
 };
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -64,12 +68,10 @@ app.post('/gerar-proposta', async (req, res) => {
     const subtotal_sondagem = v_metragem * v_metro;
     const valor_total = subtotal_sondagem + v_art + v_mobi - v_desc;
 
-    // Tratamento seguro para textos
     const cliente_tel = d.telefone || '';
     const cliente_email = d.email || '';
 
     try {
-        // SQL Otimizado para salvar contato
         const sql = `
             INSERT INTO propostas 
             (cliente, telefone, email, endereco, furos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total) 
@@ -116,17 +118,22 @@ app.get('/reemitir-pdf/:id', async (req, res) => {
     } catch (err) { res.status(500).send('Erro'); }
 });
 
+// --- GERADOR PDF COMPLETO (PROFISSIONAL) ---
 function gerarPDFDinamico(res, d) {
     const doc = new PDFDocument({ margin: 40, size: 'A4', bufferPages: true });
+    
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Orcamento_${d.id}.pdf"`);
     doc.pipe(res);
 
-    // CABEÇALHO
+    // --- 1. CABEÇALHO ---
     const logoPath = path.join(__dirname, 'public', 'logo.png');
-    if (fs.existsSync(logoPath)) { try { doc.image(logoPath, 40, 30, { width: 110 }); } catch (e) {} }
+    if (fs.existsSync(logoPath)) {
+        try { doc.image(logoPath, 40, 30, { width: 110 }); } catch (e) {}
+    }
 
-    doc.font('Helvetica-Bold').fontSize(14).fillColor(COLORS.SECONDARY).text('SONDAMAIS ENGENHARIA', 200, 35, { align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(14).fillColor(COLORS.SECONDARY)
+       .text('SONDAMAIS ENGENHARIA', 200, 35, { align: 'right' });
     doc.font('Helvetica').fontSize(8).fillColor(COLORS.LIGHT_TEXT)
        .text('R. Luís Spiandorelli Neto, 60 - Valinhos/SP', 200, 53, { align: 'right' })
        .text('CEP: 13271-570 | Tel: (19) 99800-2260', 200, 65, { align: 'right' })
@@ -134,69 +141,157 @@ function gerarPDFDinamico(res, d) {
 
     doc.moveTo(40, 95).lineTo(555, 95).strokeColor(COLORS.PRIMARY).lineWidth(2).stroke();
 
-    // DADOS CLIENTE
+    // --- 2. DADOS DO CLIENTE E ORÇAMENTO ---
     const startY = 110;
+    
+    // Caixa Esquerda (Info Proposta)
     doc.rect(40, startY, 150, 70).fillAndStroke('#f9f9f9', COLORS.BORDER);
-    doc.fillColor(COLORS.SECONDARY).fontSize(9).font('Helvetica-Bold').text('ORÇAMENTO TÉCNICO', 50, startY + 10);
+    doc.fillColor(COLORS.SECONDARY).fontSize(9).font('Helvetica-Bold')
+       .text('ORÇAMENTO TÉCNICO', 50, startY + 10);
     doc.fillColor('black').font('Helvetica').fontSize(9)
        .text(`Nº Proposta: ${d.id}/2026`, 50, startY + 28)
        .text(`Data: ${d.data}`, 50, startY + 42);
 
+    // Caixa Direita (Info Cliente - COM TELEFONE E EMAIL)
     doc.rect(200, startY, 355, 70).strokeColor(COLORS.BORDER).stroke();
-    doc.fillColor(COLORS.SECONDARY).fontSize(9).font('Helvetica-Bold').text('DADOS DO CLIENTE', 210, startY + 10);
+    doc.fillColor(COLORS.SECONDARY).fontSize(9).font('Helvetica-Bold')
+       .text('DADOS DO CLIENTE', 210, startY + 10);
     
-    doc.fillColor('black').font('Helvetica').fontSize(9);
-    doc.text(`Cliente: ${d.cliente}`, 210, startY + 25, { width: 330, ellipsis: true });
-    
+    doc.fillColor('black').font('Helvetica').fontSize(9)
+       .text(`Cliente: ${d.cliente}`, 210, startY + 25, { width: 330, ellipsis: true });
+
     let contactInfo = [];
     if(d.telefone) contactInfo.push(`Tel: ${d.telefone}`);
     if(d.email) contactInfo.push(`Email: ${d.email}`);
+    
     if(contactInfo.length > 0) {
-        doc.text(contactInfo.join(' | '), 210, startY + 38);
+        doc.text(contactInfo.join(' | '), 210, startY + 38, { width: 330 });
         doc.text(`Local: ${d.endereco}`, 210, startY + 51, { width: 330, ellipsis: true });
     } else {
         doc.text(`Local: ${d.endereco}`, 210, startY + 38, { width: 330, ellipsis: true });
     }
 
-    // TABELA
+    // --- 3. TABELA DE ITENS (LAYOUT GRID) ---
     doc.y = startY + 90;
     const tableTop = doc.y;
+    
+    // Cabeçalho da Tabela
     doc.rect(40, tableTop, 515, 20).fill(COLORS.TABLE_HEADER);
     doc.fillColor('black').font('Helvetica-Bold').fontSize(8);
-    const colDesc = 50, colQtd = 330, colUnit = 390, colTotal = 470;
+    
+    const colDesc = 50;
+    const colQtd = 330;
+    const colUnit = 390;
+    const colTotal = 470;
+
     doc.text('DESCRIÇÃO DOS SERVIÇOS', colDesc, tableTop + 6);
     doc.text('QTD.', colQtd, tableTop + 6);
     doc.text('UNIT. (R$)', colUnit, tableTop + 6, { width: 60, align: 'right' });
     doc.text('TOTAL (R$)', colTotal, tableTop + 6, { width: 80, align: 'right' });
+
     doc.y += 25;
 
+    // Função de Linha (Profissional)
     function drawRow(desc, subtext, qtd, unit, total, isDiscount = false) {
         const rowY = doc.y;
         if (rowY > 700) { doc.addPage(); doc.y = 50; }
+
         doc.font('Helvetica').fontSize(9).fillColor(isDiscount ? '#cc0000' : COLORS.DARK_TEXT);
         doc.text(desc, colDesc, rowY, { width: 270 });
-        if (subtext) { doc.fontSize(7).fillColor(COLORS.LIGHT_TEXT).text(subtext, colDesc, rowY + 12, { width: 270 }); doc.fontSize(9); }
+        
+        if (subtext) {
+            doc.fontSize(7).fillColor(COLORS.LIGHT_TEXT)
+               .text(subtext, colDesc, rowY + 12, { width: 270 });
+            doc.fontSize(9);
+        }
+
         doc.fillColor(isDiscount ? '#cc0000' : COLORS.DARK_TEXT);
         doc.text(qtd, colQtd, rowY);
         doc.text(unit, colUnit, rowY, { width: 60, align: 'right' });
         doc.text(total, colTotal, rowY, { width: 80, align: 'right' });
-        doc.moveTo(40, rowY + 25).lineTo(555, rowY + 25).strokeColor('#EEEEEE').lineWidth(0.5).stroke();
+
+        doc.moveTo(40, rowY + 25).lineTo(555, rowY + 25)
+           .strokeColor('#EEEEEE').lineWidth(0.5).stroke();
+        
         doc.y = rowY + 30;
     }
 
-    drawRow('Sondagem SPT (conf. NBR 6484:2020)', `Estimativa: ${d.furos} furos. Metragem mínima contratada.`, `${d.metragem} m`, d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2}), d.subtotal_sondagem.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
-    if (d.mobilizacao > 0) drawRow('Mobilização e Desmobilização', null, '1 vb', d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2}), d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
-    if (d.art > 0) drawRow('Emissão de ART (Taxa CREA)', null, '1 un', d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2}), d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
-    if (d.desconto > 0) drawRow('Desconto Comercial', null, '-', '-', `- ${d.desconto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, true);
+    // Renderiza Itens
+    drawRow('Sondagem SPT (conf. NBR 6484:2020)', 
+            `Estimativa: ${d.furos} furos. Metragem mínima contratada.`, 
+            `${d.metragem} m`, 
+            d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2}), 
+            d.subtotal_sondagem.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
 
+    if (d.mobilizacao > 0) 
+        drawRow('Mobilização e Desmobilização', null, '1 vb', 
+            d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2}), 
+            d.mobilizacao.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
+
+    if (d.art > 0) 
+        drawRow('Emissão de ART (Taxa CREA)', null, '1 un', 
+            d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2}), 
+            d.art.toLocaleString('pt-BR', {minimumFractionDigits: 2}));
+
+    if (d.desconto > 0) 
+        drawRow('Desconto Comercial', null, '-', 
+            '-', 
+            `- ${d.desconto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, true);
+
+    // Total Geral
     doc.moveDown(0.5);
     doc.rect(380, doc.y, 175, 25).fill('#f0f0f0');
-    doc.fillColor(COLORS.SECONDARY).font('Helvetica-Bold').fontSize(11).text(`TOTAL: R$ ${d.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 390, doc.y - 18, { width: 160, align: 'right' });
+    doc.fillColor(COLORS.SECONDARY).font('Helvetica-Bold').fontSize(11)
+       .text(`TOTAL: R$ ${d.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 390, doc.y - 18, { width: 160, align: 'right' });
+
+    // --- 4. RODAPÉ TÉCNICO (VOLTOU!) ---
+    doc.y += 40;
+    if (doc.y > 600) doc.addPage();
+
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY).text('NOTAS TÉCNICAS E CRITÉRIOS DE PARALISAÇÃO');
+    doc.moveDown(0.5);
+    doc.font('Helvetica').fontSize(8).fillColor(COLORS.DARK_TEXT);
+    const notas = [
+        "1. CRITÉRIO DE PARALISAÇÃO: Segue estritamente as recomendações da NBR 6484:2020.",
+        `2. METRAGEM EXCEDENTE: Caso a profundidade ultrapasse ${d.metragem}m, será cobrado R$ ${d.valor_metro.toLocaleString('pt-BR', {minimumFractionDigits: 2})} por metro adicional.`,
+        "3. RESPONSABILIDADES DO CLIENTE: Locação dos furos (topografia) e fornecimento de água na obra.",
+        "4. FATURAMENTO: Ocorrendo necessidade de avançar a metragem para atender norma técnica, o excedente é faturado automaticamente."
+    ];
+    for (let nota of notas) { 
+        doc.text(nota, { width: 515, align: 'justify' }); 
+        doc.moveDown(0.3); 
+    }
+
+    // --- 5. CRONOGRAMA E PAGAMENTO (VOLTOU!) ---
+    doc.moveDown(1);
+    const footerY = doc.y;
+    
+    // Coluna Cronograma
+    doc.rect(40, footerY, 250, 80).strokeColor(COLORS.BORDER).stroke();
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY)
+       .text('CRONOGRAMA PREVISTO', 50, footerY + 10);
+    doc.font('Helvetica').fontSize(8).fillColor(COLORS.DARK_TEXT)
+       .text('• Início: A combinar (mediante agenda).', 50, footerY + 25)
+       .text('• Execução: Estimado 1 a 2 dias.', 50, footerY + 38)
+       .text('• Relatório: Até 3 dias úteis após campo.', 50, footerY + 51)
+       .text('• Validade da Proposta: 10 dias.', 50, footerY + 64);
+
+    // Coluna Pagamento
+    doc.rect(305, footerY, 250, 80).stroke();
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.SECONDARY)
+       .text('CONDIÇÕES DE PAGAMENTO', 315, footerY + 10);
+    
+    doc.fillColor('#cc0000').text('50% NO ACEITE (Sinal)', 315, footerY + 25);
+    doc.fillColor(COLORS.DARK_TEXT).text('50% NA ENTREGA DO LAUDO', 315, footerY + 38);
+    
+    doc.font('Helvetica-Oblique').fontSize(7).fillColor(COLORS.LIGHT_TEXT)
+       .text('Chave PIX e Dados Bancários serão enviados', 315, footerY + 60)
+       .text('no corpo do e-mail de faturamento.', 315, footerY + 70);
 
     doc.end();
 }
 
-// --- MIGRATION CRÍTICA (GARANTE QUE AS COLUNAS EXISTAM) ---
+// --- MIGRATION (Continua aqui para segurança) ---
 const initSQL = `
   CREATE TABLE IF NOT EXISTS propostas (
     id SERIAL PRIMARY KEY,
@@ -210,14 +305,13 @@ const initSQL = `
     valor_total NUMERIC,
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
-  -- ESTAS LINHAS ABAIXO GARANTEM QUE O TELEFONE/EMAIL FUNCIONEM
   ALTER TABLE propostas ADD COLUMN IF NOT EXISTS telefone VARCHAR(50);
   ALTER TABLE propostas ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 `;
 
 pool.query(initSQL)
   .then(() => {
-    console.log('>>> MIGRATION EXECUTADA: COLUNAS TELEFONE/EMAIL VERIFICADAS <<<');
+    console.log('>>> SISTEMA ONLINE: DB & PDF RESTAURADOS <<<');
     app.listen(port, () => { console.log(`Rodando na porta ${port}`); });
   })
   .catch(err => { console.error('ERRO NO BANCO:', err); });
