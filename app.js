@@ -11,13 +11,12 @@ const port = process.env.PORT || 3000;
 let adminLogado = false; 
 const SENHA_MESTRA = 'admin123';
 
-// CORES EXATAS DO LOGOTIPO SONDAMAIS
+// PALETA DE CORES SONDAMAIS
 const COLORS = {
     PRIMARY: '#444444', 
-    SONDA_GREEN: '#8CBF26', // Verde vibrante do logo
-    SONDA_DARK_GREEN: '#4F7942',
-    BORDER: '#000000', 
-    BG_HEADER: '#ffffff'
+    SONDA_GREEN: '#8CBF26', 
+    GRID_LINE: '#aaaaaa', // Cinza para as linhas da tabela
+    BG_HEADER: '#f9f9f9'
 };
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -32,7 +31,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
 app.use(express.static('public')); 
 
-// --- ROTAS DE PÁGINAS ---
+// --- ROTAS WEB ---
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/admin', (req, res) => adminLogado ? res.sendFile(path.join(__dirname, 'public', 'admin.html')) : res.redirect('/login'));
@@ -40,7 +39,7 @@ app.get('/boletim', (req, res) => res.sendFile(path.join(__dirname, 'public', 'b
 app.get('/engenharia', (req, res) => adminLogado ? res.sendFile(path.join(__dirname, 'public', 'engenharia.html')) : res.redirect('/login')); 
 app.get('/logout', (req, res) => { adminLogado = false; res.redirect('/login'); });
 
-// --- API DE AUTENTICAÇÃO E DADOS ---
+// --- API ---
 app.post('/api/login', (req, res) => {
     if (req.body.senha === SENHA_MESTRA) { adminLogado = true; res.sendStatus(200); } else { res.sendStatus(401); }
 });
@@ -56,6 +55,7 @@ app.delete('/api/propostas/:id', async (req, res) => {
     catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
+// ENGENHARIA (Dados Completos)
 app.get('/api/engenharia/:id', async (req, res) => {
     if (!adminLogado) return res.status(403).send('Acesso Negado');
     try {
@@ -74,7 +74,7 @@ app.get('/api/engenharia/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- API DE CAMPO (BOLETIM) ---
+// BOLETIM (Campo)
 app.get('/api/boletim/furos/:obraId', async (req, res) => { try { const r = await pool.query('SELECT * FROM furos WHERE proposta_id = $1 ORDER BY id ASC', [req.params.obraId]); res.json(r.rows); } catch (e) { res.status(500).json(e); } });
 app.post('/api/boletim/furos', async (req, res) => { const d = req.body; try { const r = await pool.query(`INSERT INTO furos (proposta_id, nome_furo, sondador, data_inicio, cota, nivel_agua_inicial) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, [d.proposta_id, d.nome_furo, d.sondador, d.data_inicio, d.cota, d.nivel_agua_inicial]); res.json({id: r.rows[0].id}); } catch (e) { res.status(500).json(e); } });
 app.put('/api/boletim/furos/:id', async (req, res) => { const {id} = req.params; const d = req.body; try { await pool.query(`UPDATE furos SET nivel_agua_inicial=$1, nivel_agua_final=$2, data_inicio=$3, data_termino=$4, coordenadas=$5 WHERE id=$6`, [d.nivel_agua_inicial, d.nivel_agua_final, d.data_inicio, d.data_termino, d.coordenadas, id]); res.sendStatus(200); } catch (e) { res.status(500).json(e); } });
@@ -84,7 +84,7 @@ app.get('/api/boletim/fotos/:furoId', async (req, res) => { try { const r = awai
 app.post('/api/boletim/fotos', async (req, res) => { const {furo_id, imagem_base64, legenda} = req.body; try { await pool.query(`INSERT INTO fotos (furo_id, imagem, legenda) VALUES ($1, $2, $3)`, [furo_id, imagem_base64, legenda]); res.sendStatus(200); } catch (e) { res.status(500).json(e); } });
 app.get('/api/foto-full/:id', async (req, res) => { try { const r = await pool.query('SELECT imagem FROM fotos WHERE id = $1', [req.params.id]); if(r.rows.length > 0) { const img = Buffer.from(r.rows[0].imagem.split(",")[1], 'base64'); res.writeHead(200, {'Content-Type': 'image/jpeg', 'Content-Length': img.length}); res.end(img); } else res.status(404).send('Not found'); } catch(e) { res.status(500).send(e); } });
 
-// --- GERAÇÃO DO RELATÓRIO TÉCNICO COMPLETO ---
+// --- RELATÓRIO TÉCNICO (PERFEITO) ---
 app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
     if (!adminLogado) return res.redirect('/login');
 
@@ -97,10 +97,10 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
 
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Relatorio_Tecnico_${proposta.cliente}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Relatorio_Tecnico_${proposta.id}.pdf"`);
         doc.pipe(res);
 
-        // --- 1. CAPA (Minimalista e Elegante) ---
+        // --- 1. CAPA ---
         doc.rect(0, 0, 595, 842).fill('white');
         const logoPath = path.join(__dirname, 'public', 'logo.png');
         if (fs.existsSync(logoPath)) { doc.image(logoPath, 150, 150, { width: 300 }); }
@@ -112,28 +112,32 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
         doc.fontSize(10).text('RELATÓRIO TÉCNICO DE SONDAGEM SPT', 0, 670, { align: 'center' });
         doc.text(`Valinhos, ${new Date().toLocaleDateString('pt-BR', {day:'numeric', month:'long', year:'numeric'})}.`, 0, 700, { align: 'center' });
 
-        // --- 2. CONTRACAPA (O ADENDO IMPORTANTE) ---
+        // --- 2. CONTRACAPA ---
         doc.addPage();
         const startY = 50;
-        
-        // Cabeçalho da Contracapa
         doc.font('Helvetica-Bold').fontSize(10).text(`CLIENTE: ${proposta.cliente}`, 40, startY);
-        doc.text(`RELATÓRIO TÉCNICO Nº: ${proposta.id}/2026`, 40, startY + 15);
-        doc.text(`SERVIÇO: SONDAGEM DE SIMPLES RECONHECIMENTO (SPT)`, 40, startY + 30);
+        doc.text(`RELATÓRIO Nº: ${proposta.id}/2026`, 40, startY + 15);
+        doc.text(`SERVIÇO: SONDAGEM SPT (NBR 6484)`, 40, startY + 30);
         doc.text(`LOCAL: ${proposta.endereco}`, 40, startY + 45);
         
         doc.moveDown(2);
         doc.font('Helvetica-Bold').fontSize(12).text('I - INTRODUÇÃO');
         doc.moveDown(0.5);
+        
+        // Lógica de Plural (Gramática)
+        const qtdFuros = furos.length;
+        const txtSondagem = qtdFuros > 1 ? 'sondagens' : 'sondagem';
+        const txtRealizadas = qtdFuros > 1 ? 'Foram realizadas' : 'Foi realizada';
+        
         doc.font('Helvetica').fontSize(10).text(
-            `Foram realizadas ${furos.length} sondagens à percussão no endereço: ${proposta.endereco}. ` +
+            `${txtRealizadas} ${qtdFuros} (${convertNumberToText(qtdFuros)}) ${txtSondagem} à percussão no endereço: ${proposta.endereco}. ` +
             `O trabalho visa o reconhecimento do subsolo para fins de engenharia de fundações.`, 
             { align: 'justify' }
         );
         doc.moveDown(0.5);
-        doc.text('No presente relatório está contemplado:', { indent: 20 });
+        doc.text('Este relatório contempla:', { indent: 20 });
         doc.text('• RELATÓRIO FOTOGRÁFICO', { indent: 40 });
-        doc.text('• PERFIS INDIVIDUAIS DE SONDAGENS', { indent: 40 });
+        doc.text('• PERFIS INDIVIDUAIS', { indent: 40 });
 
         doc.moveDown(1.5);
         doc.font('Helvetica-Bold').fontSize(12).text('II - METODOLOGIA');
@@ -155,18 +159,16 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
         doc.text('CREA: 5069965546', { align: 'center' });
         doc.font('Helvetica').text('SONDAMAIS ENGENHARIA', { align: 'center' });
 
-        // --- 3. PERFIS DE SONDAGEM (Loop dos Furos) ---
+        // --- 3. PERFIS DE SONDAGEM (COM GRADE VERTICAL) ---
         for (let i = 0; i < furos.length; i++) {
             const furo = furos[i];
-            // Carrega amostras
             const amosRes = await pool.query('SELECT * FROM amostras WHERE furo_id = $1 ORDER BY profundidade_ini ASC', [furo.id]);
             const amostras = amosRes.rows;
-            // Carrega fotos
             const fotosRes = await pool.query('SELECT * FROM fotos WHERE furo_id = $1 ORDER BY id DESC', [furo.id]);
             
             doc.addPage();
 
-            // CABEÇALHO DO PERFIL (GRID)
+            // HEADER FURO
             const topY = 30;
             doc.rect(20, topY, 555, 55).stroke(); 
             doc.fontSize(8).font('Helvetica-Bold');
@@ -177,26 +179,37 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
             doc.fontSize(8).font('Helvetica-Bold').text('DATA:', 450, topY + 25); doc.font('Helvetica').text(furo.data_inicio ? new Date(furo.data_inicio).toLocaleDateString() : '-', 485, topY + 25);
             doc.font('Helvetica-Bold').text('N.A.:', 450, topY + 40); doc.font('Helvetica').text(`${furo.nivel_agua_inicial || 'Seco'}`, 485, topY + 40);
 
-            // DESENHO DAS COLUNAS
+            // DEFINIÇÃO DAS COLUNAS (X)
             const yHeader = 100;
             const yStart = 120;
-            const col = { PROF: 20, GRAF: 60, GOLPES: 180, NSPT: 240, PERFIL: 280, DESC: 320 };
+            const col = { PROF: 20, GRAF: 60, GOLPES: 180, NSPT: 240, PERFIL: 280, DESC: 320, END: 575 };
             
+            // Desenhar Cabeçalhos
             doc.font('Helvetica-Bold').fontSize(8);
-            doc.text('Prof(m)', col.PROF, yHeader);
-            doc.text('Gráfico SPT (0-50)', col.GRAF, yHeader);
-            doc.text('Golpes', col.GOLPES, yHeader);
-            doc.text('NSPT', col.NSPT, yHeader);
-            doc.text('Perfil', col.PERFIL, yHeader);
-            doc.text('Descrição do Material', col.DESC, yHeader);
+            doc.text('Prof(m)', col.PROF, yHeader, {width: 40, align: 'center'});
+            doc.text('Gráfico SPT (0-50)', col.GRAF, yHeader, {width: 120, align: 'center'});
+            doc.text('Golpes', col.GOLPES, yHeader, {width: 60, align: 'center'});
+            doc.text('NSPT', col.NSPT, yHeader, {width: 40, align: 'center'});
+            doc.text('Perfil', col.PERFIL, yHeader, {width: 40, align: 'center'});
+            doc.text('Descrição do Material', col.DESC, yHeader, {width: 250, align: 'center'});
+            
             doc.moveTo(20, yStart).lineTo(575, yStart).stroke();
 
             let currentY = yStart + 10;
             const scaleY = 30; // 30px por metro
             let pontosGrafico = [];
+            let pageStartY = yStart; // Para desenhar as linhas verticais depois
 
             for (let am of amostras) {
-                if (currentY > 750) { doc.addPage(); currentY = 50; doc.text('Continuação...', 20, 30); }
+                // QUEBRA DE PÁGINA
+                if (currentY > 750) { 
+                    // Desenha linhas verticais da página que acabou
+                    drawGridLines(doc, pageStartY, currentY, col);
+                    doc.addPage(); 
+                    currentY = 50; 
+                    pageStartY = 50;
+                    doc.font('Helvetica-Bold').fontSize(8).text('Continuação...', 20, 30);
+                }
 
                 const prof = parseFloat(am.profundidade_ini);
                 const g1 = am.golpe_1 || 0;
@@ -206,33 +219,43 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
 
                 // Dados
                 doc.font('Helvetica').fontSize(9).fillColor('black');
-                doc.text(prof.toFixed(2), col.PROF, currentY);
-                doc.fontSize(8).text(`${g1} / ${g2} / ${g3}`, col.GOLPES, currentY);
-                doc.font('Helvetica-Bold').fontSize(10).text(nspt.toString(), col.NSPT, currentY);
+                doc.text(prof.toFixed(2), col.PROF, currentY, {width: 40, align: 'center'});
+                doc.fontSize(8).text(`${g1} / ${g2} / ${g3}`, col.GOLPES, currentY, {width: 60, align: 'center'});
+                doc.font('Helvetica-Bold').fontSize(10).text(nspt.toString(), col.NSPT, currentY, {width: 40, align: 'center'});
 
-                // Hachura Colorida (Visual)
+                // Perfil Visual (Hachura)
                 let corSolo = '#dddddd';
                 const desc = (am.tipo_solo || '').toLowerCase();
-                if(desc.includes('argila')) corSolo = '#D2691E'; // Marrom/Vermelho
-                else if(desc.includes('areia')) corSolo = '#F0E68C'; // Amarelo
-                else if(desc.includes('silte')) corSolo = '#8FBC8F'; // Verde Musgo
+                if(desc.includes('argila')) corSolo = '#D2691E'; 
+                else if(desc.includes('areia')) corSolo = '#F0E68C'; 
+                else if(desc.includes('silte')) corSolo = '#8FBC8F'; 
+                else if(desc.includes('aterro')) corSolo = '#A9A9A9';
                 
-                doc.save().rect(col.PERFIL, currentY - 5, 30, scaleY).fill(corSolo).stroke().restore();
+                doc.save().rect(col.PERFIL + 5, currentY - 5, 30, scaleY).fill(corSolo).stroke().restore();
 
                 // Descrição
                 doc.font('Helvetica').fontSize(8).fillColor('black');
-                doc.text(am.tipo_solo || '-', col.DESC, currentY, { width: 230 });
+                doc.text(am.tipo_solo || '-', col.DESC + 5, currentY, { width: 240 });
 
                 // Ponto do Gráfico
-                let xG = col.GRAF + (nspt * 2.4); // Escala X
+                let xG = col.GRAF + (nspt * 2.4); 
                 if (xG > col.GRAF + 120) xG = col.GRAF + 120;
                 pontosGrafico.push({ x: xG, y: currentY + 5 });
                 doc.circle(xG, currentY + 5, 2).fillColor('red').fill();
 
+                // Linha horizontal fina entre metros
+                doc.save().strokeColor('#eeeeee').lineWidth(0.5)
+                   .moveTo(col.PROF, currentY + scaleY - 10)
+                   .lineTo(col.END, currentY + scaleY - 10)
+                   .stroke().restore();
+
                 currentY += scaleY;
             }
 
-            // Linha do Gráfico
+            // Desenha linhas verticais da última página do furo
+            drawGridLines(doc, pageStartY, currentY, col);
+
+            // Linha do Gráfico (Vermelha)
             if (pontosGrafico.length > 1) {
                 doc.save().strokeColor('red').lineWidth(1.5);
                 doc.moveTo(pontosGrafico[0].x, pontosGrafico[0].y);
@@ -240,11 +263,12 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
                 doc.stroke().restore();
             }
 
-            // Grade de Fundo
+            // Grade de Fundo do Gráfico (Pontilhada)
             doc.save().strokeColor('#cccccc').lineWidth(0.5).dash(2, {space:2});
             for(let g=10; g<=50; g+=10) {
                 let lx = col.GRAF + (g * 2.4);
-                doc.moveTo(lx, yStart).lineTo(lx, currentY).stroke();
+                // Desenha do topo da página atual até o fim
+                doc.moveTo(lx, pageStartY).lineTo(lx, currentY).stroke(); 
             }
             doc.restore();
 
@@ -259,13 +283,10 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
                     try {
                         const imgBuffer = Buffer.from(foto.imagem.split(",")[1], 'base64');
                         doc.image(imgBuffer, xFoto, yFoto, { width: 240, height: 180, fit: [240, 180] });
-                        // Legenda
                         doc.rect(xFoto, yFoto + 180, 240, 20).fill('#f0f0f0');
                         doc.fillColor('black').fontSize(9).text(foto.legenda || '', xFoto + 5, yFoto + 185, {width: 230, align:'center'});
-                        
                         count++;
-                        if(count % 2 === 1) xFoto = 310;
-                        else { xFoto = 40; yFoto += 220; }
+                        if(count % 2 === 1) xFoto = 310; else { xFoto = 40; yFoto += 220; }
                     } catch(e) {}
                 }
             }
@@ -274,18 +295,34 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
     } catch (err) { console.error(err); res.status(500).send('Erro no relatório'); }
 });
 
-// --- ROTA PROPOSTA COMERCIAL (Mantida Simples para não quebrar) ---
+// Helper: Linhas Verticais da Tabela
+function drawGridLines(doc, yStart, yEnd, col) {
+    doc.save().strokeColor(COLORS.GRID_LINE).lineWidth(0.5);
+    // Linha final embaixo
+    doc.moveTo(col.PROF, yEnd).lineTo(col.END, yEnd).stroke();
+    // Linhas Verticais
+    [col.PROF, col.GRAF, col.GOLPES, col.NSPT, col.PERFIL, col.DESC, col.END].forEach(x => {
+        doc.moveTo(x, yStart).lineTo(x, yEnd).stroke();
+    });
+    doc.restore();
+}
+
+function convertNumberToText(n) {
+    const texts = ['zero','uma','duas','três','quatro','cinco','seis','sete','oito','nove','dez'];
+    return texts[n] || n.toString();
+}
+
+// --- ROTA PROPOSTA (SIMPLES) ---
 app.post('/gerar-proposta', async (req, res) => {
     const d = req.body;
     try {
-        // ... (Lógica de salvar proposta igual ao anterior)
         const sql = `INSERT INTO propostas (cliente, telefone, email, endereco, furos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`;
-        const v = [d.cliente, d.telefone, d.email, d.endereco, d.furos, d.metragem, d.art, d.mobilizacao, d.desconto, 0]; // Simplificado
+        const v = [d.cliente, d.telefone, d.email, d.endereco, d.furos, d.metragem, d.art, d.mobilizacao, d.desconto, 0];
         const r = await pool.query(sql, v);
         res.redirect('/admin');
     } catch(e) { res.status(500).send('Erro'); }
 });
-app.get('/reemitir-pdf/:id', (req, res) => res.send('Função PDF Comercial')); // Placeholder simples
+app.get('/reemitir-pdf/:id', (req, res) => res.send('Em manutenção para update técnico.'));
 
 // --- INIT SQL ---
 const initSQL = `
