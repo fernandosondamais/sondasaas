@@ -31,8 +31,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
 app.use(express.static('public')); 
 
-// --- ROTAS WEB ---
+// --- ROTAS DE PÁGINAS (ATUALIZADAS) ---
+// 1. Landing Page (Nova Home)
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+// 2. Gerador de Proposta (Antigo Index renomeado)
+app.get('/orcamento', (req, res) => res.sendFile(path.join(__dirname, 'public', 'orcamento.html')));
+
+// 3. Outras Rotas
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/admin', (req, res) => adminLogado ? res.sendFile(path.join(__dirname, 'public', 'admin.html')) : res.redirect('/login'));
 app.get('/boletim', (req, res) => res.sendFile(path.join(__dirname, 'public', 'boletim.html')));
@@ -84,7 +90,7 @@ app.get('/api/boletim/fotos/:furoId', async (req, res) => { try { const r = awai
 app.post('/api/boletim/fotos', async (req, res) => { const {furo_id, imagem_base64, legenda} = req.body; try { await pool.query(`INSERT INTO fotos (furo_id, imagem, legenda) VALUES ($1, $2, $3)`, [furo_id, imagem_base64, legenda]); res.sendStatus(200); } catch (e) { res.status(500).json(e); } });
 app.get('/api/foto-full/:id', async (req, res) => { try { const r = await pool.query('SELECT imagem FROM fotos WHERE id = $1', [req.params.id]); if(r.rows.length > 0) { const img = Buffer.from(r.rows[0].imagem.split(",")[1], 'base64'); res.writeHead(200, {'Content-Type': 'image/jpeg', 'Content-Length': img.length}); res.end(img); } else res.status(404).send('Not found'); } catch(e) { res.status(500).send(e); } });
 
-// --- RELATÓRIO TÉCNICO (PERFEITO) ---
+// --- RELATÓRIO TÉCNICO COMPLETO (Sondagem de Solo) ---
 app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
     if (!adminLogado) return res.redirect('/login');
 
@@ -298,9 +304,8 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
 // Helper: Linhas Verticais da Tabela
 function drawGridLines(doc, yStart, yEnd, col) {
     doc.save().strokeColor(COLORS.GRID_LINE).lineWidth(0.5);
-    // Linha final embaixo
-    doc.moveTo(col.PROF, yEnd).lineTo(col.END, yEnd).stroke();
-    // Linhas Verticais
+    doc.moveTo(col.PROF, yEnd).lineTo(col.END, yEnd).stroke(); // Linha final
+    // Verticais
     [col.PROF, col.GRAF, col.GOLPES, col.NSPT, col.PERFIL, col.DESC, col.END].forEach(x => {
         doc.moveTo(x, yStart).lineTo(x, yEnd).stroke();
     });
@@ -312,7 +317,7 @@ function convertNumberToText(n) {
     return texts[n] || n.toString();
 }
 
-// --- ROTA PROPOSTA (SIMPLES) ---
+// --- ROTA PROPOSTA COMERCIAL (Mantida) ---
 app.post('/gerar-proposta', async (req, res) => {
     const d = req.body;
     try {
@@ -322,7 +327,7 @@ app.post('/gerar-proposta', async (req, res) => {
         res.redirect('/admin');
     } catch(e) { res.status(500).send('Erro'); }
 });
-app.get('/reemitir-pdf/:id', (req, res) => res.send('Em manutenção para update técnico.'));
+app.get('/reemitir-pdf/:id', (req, res) => res.send('Em manutenção.'));
 
 // --- INIT SQL ---
 const initSQL = `
