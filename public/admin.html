@@ -14,28 +14,11 @@
         }
         body { background-color: #f8f9fa; }
         
-        /* Navbar Personalizada */
-        .navbar-sonda {
-            background-color: var(--sonda-green);
-            color: white;
-        }
+        .navbar-sonda { background-color: var(--sonda-green); color: white; }
         .navbar-brand { font-weight: bold; color: white !important; }
-        
-        /* Card de Busca */
-        .search-card {
-            border: none;
-            border-left: 5px solid var(--sonda-green);
-        }
-
-        /* Botões */
-        .btn-outline-sonda {
-            color: var(--sonda-green);
-            border-color: var(--sonda-green);
-        }
-        .btn-outline-sonda:hover {
-            background-color: var(--sonda-green);
-            color: white;
-        }
+        .search-card { border: none; border-left: 5px solid var(--sonda-green); }
+        .btn-outline-sonda { color: var(--sonda-green); border-color: var(--sonda-green); }
+        .btn-outline-sonda:hover { background-color: var(--sonda-green); color: white; }
     </style>
 </head>
 <body>
@@ -64,7 +47,7 @@
                 <div class="w-100">
                     <label class="form-label fw-bold text-muted small mb-0">PESQUISAR PROPOSTAS</label>
                     <input type="text" id="inputBusca" class="form-control border-0 px-0 shadow-none fs-5" 
-                           placeholder="Digite o nome do cliente, email, ID ou data..." style="background: transparent;">
+                           placeholder="Digite o nome do cliente, telefone, email ou ID..." style="background: transparent;">
                 </div>
             </div>
         </div>
@@ -92,13 +75,13 @@
     </div>
 
     <script>
-        let todasPropostas = []; // Armazena os dados para exportação
+        let todasPropostas = []; 
 
-        // 1. Carregar Dados ao Abrir a Página
+        // 1. Carregar Dados
         fetch('/api/propostas')
             .then(res => res.json())
             .then(data => {
-                todasPropostas = data; // Salva na memória para o CSV
+                todasPropostas = data; 
                 const tbody = document.querySelector('#tabelaPropostas tbody');
                 tbody.innerHTML = ''; 
 
@@ -112,12 +95,14 @@
                     const dataFmt = new Date(p.data_criacao).toLocaleDateString('pt-BR');
                     const valorFmt = parseFloat(p.valor_total).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
 
+                    // CORREÇÃO: Adicionado campo de Telefone com ícone de WhatsApp
                     tr.innerHTML = `
                         <td class="ps-4 fw-bold text-muted">#${p.id}</td>
                         <td>${dataFmt}</td>
                         <td>
-                            <div class="fw-bold text-dark">${p.cliente}</div>
-                            <div class="small text-muted"><i class="bi bi-envelope me-1"></i>${p.email || 'Sem email'}</div>
+                            <div class="fw-bold text-dark mb-1">${p.cliente}</div>
+                            <div class="small text-muted"><i class="bi bi-envelope me-1"></i>${p.email || '-'}</div>
+                            <div class="small text-muted"><i class="bi bi-whatsapp me-1 text-success"></i>${p.telefone || '-'}</div>
                         </td>
                         <td class="fw-bold text-success">${valorFmt}</td>
                         <td class="text-end pe-4">
@@ -137,7 +122,7 @@
                 document.querySelector('#tabelaPropostas tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar propostas.</td></tr>';
             });
 
-        // 2. Busca em Tempo Real
+        // 2. Busca
         document.getElementById('inputBusca').addEventListener('keyup', function() {
             const termo = this.value.toLowerCase();
             const linhas = document.querySelectorAll('#tabelaPropostas tbody tr');
@@ -156,35 +141,21 @@
             }
         }
 
-        // 4. EXPORTAR RELATÓRIO (CSV/EXCEL) - NOVO!
+        // 4. Exportar CSV (Com telefone incluso)
         function exportarCSV() {
-            if (todasPropostas.length === 0) {
-                alert("Não há dados para exportar.");
-                return;
-            }
-
-            // Cabeçalho do CSV
+            if (todasPropostas.length === 0) { alert("Sem dados."); return; }
             let csv = "ID;Data;Cliente;Email;Telefone;Metragem;Furos;Total (R$)\n";
-
-            // Linhas
             todasPropostas.forEach(p => {
                 const dataFmt = new Date(p.data_criacao).toLocaleDateString('pt-BR');
                 const totalFmt = parseFloat(p.valor_total).toFixed(2).replace('.', ',');
-                
-                // Trata campos nulos e adiciona ao CSV
                 csv += `${p.id};${dataFmt};${p.cliente};${p.email || ''};${p.telefone || ''};${p.metragem_total};${p.furos};${totalFmt}\n`;
             });
-
-            // Cria o arquivo invisível para download
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
             link.setAttribute("href", url);
-            link.setAttribute("download", `Relatorio_SondaSaaS_${new Date().toLocaleDateString('pt-BR')}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
+            link.setAttribute("download", `Relatorio_SondaSaaS.csv`);
             link.click();
-            document.body.removeChild(link);
         }
     </script>
 </body>
