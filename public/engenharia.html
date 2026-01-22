@@ -7,13 +7,17 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
-        body { background-color: #e9ecef; }
-        .header-eng { background: var(--sonda-dark); color: white; padding: 15px; }
-        .card-furo { border: none; border-top: 4px solid var(--sonda-green); }
-        .table-eng th { background: #f8f9fa; font-size: 0.85rem; }
+        :root { --sonda-green: #8CBF26; --sonda-dark: #444444; }
+        body { background-color: #e9ecef; font-family: 'Segoe UI', sans-serif; }
+        
+        .header-eng { background: var(--sonda-dark); color: white; padding: 15px; border-bottom: 5px solid var(--sonda-green); }
+        .card-furo { border: none; border-left: 5px solid var(--sonda-green); transition: 0.3s; }
+        .card-furo:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        
+        .table-eng th { background: #f8f9fa; font-size: 0.85rem; text-transform: uppercase; color: #666; }
         .table-eng td { font-size: 0.9rem; vertical-align: middle; }
-        .img-thumb { width: 100%; height: 120px; object-fit: cover; cursor: pointer; border-radius: 4px; }
+        
+        .img-thumb { width: 100%; height: 100px; object-fit: cover; cursor: pointer; border-radius: 4px; border: 1px solid #ddd; }
         .badge-prof { font-family: monospace; font-size: 1rem; }
     </style>
 </head>
@@ -21,11 +25,14 @@
 
     <div class="header-eng shadow-sm d-flex justify-content-between align-items-center mb-4">
         <div class="d-flex align-items-center gap-3">
-            <a href="/admin" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-left"></i> Voltar</a>
-            <h5 class="m-0 fw-bold" id="titulo-obra">Carregando Obra...</h5>
+            <a href="/admin" class="btn btn-outline-light btn-sm fw-bold"><i class="bi bi-arrow-left"></i> Voltar</a>
+            <div>
+                <h5 class="m-0 fw-bold" id="titulo-cliente">Carregando...</h5>
+                <small id="titulo-obra" class="text-white-50">...</small>
+            </div>
         </div>
         <button class="btn btn-success btn-sm fw-bold disabled" id="btn-gerar-relatorio" onclick="gerarRelatorioPDF()">
-            <i class="bi bi-file-earmark-pdf me-2"></i>GERAR RELATÓRIO FINAL
+            <i class="bi bi-file-earmark-pdf me-2"></i>RELATÓRIO TÉCNICO
         </button>
     </div>
 
@@ -33,6 +40,7 @@
         <div class="row" id="container-furos">
             <div class="col-12 text-center py-5">
                 <div class="spinner-border text-success"></div>
+                <p class="mt-3 text-muted">Buscando dados de campo...</p>
             </div>
         </div>
     </div>
@@ -54,67 +62,88 @@
                 dadosCompletos = data;
                 renderizarEngenharia(data);
             })
-            .catch(err => console.error(err));
+            .catch(err => {
+                console.error(err);
+                document.getElementById('container-furos').innerHTML = '<div class="alert alert-danger">Erro ao carregar dados.</div>';
+            });
 
         // 2. RENDERIZAR TELA
         function renderizarEngenharia(d) {
-            document.getElementById('titulo-obra').innerText = `${d.proposta.cliente} - ${d.proposta.endereco}`;
+            document.getElementById('titulo-cliente').innerText = d.proposta.cliente;
+            document.getElementById('titulo-obra').innerText = d.proposta.endereco;
             
-            // Habilita o botão de relatório
+            // Habilita o botão de relatório se houver furos
             const btn = document.getElementById('btn-gerar-relatorio');
-            btn.classList.remove('disabled');
+            if (d.furos.length > 0) btn.classList.remove('disabled');
             
             const container = document.getElementById('container-furos');
             container.innerHTML = '';
 
             if(d.furos.length === 0) {
-                container.innerHTML = '<div class="alert alert-warning text-center">Nenhum furo iniciado nesta obra ainda.</div>';
+                container.innerHTML = `
+                    <div class="col-12 text-center mt-5">
+                        <i class="bi bi-cone-striped fs-1 text-muted"></i>
+                        <h4 class="mt-3 text-muted">Nenhum furo iniciado.</h4>
+                        <p>O sondador deve iniciar os furos pelo aplicativo de campo.</p>
+                    </div>`;
                 return;
             }
 
             d.furos.forEach(furo => {
                 let htmlAmostras = '';
+                // Calcula NSPT e gera linhas da tabela
                 furo.amostras.forEach(am => {
-                    const nspt = (am.golpe_2 || 0) + (am.golpe_3 || 0);
+                    const nspt = (parseInt(am.golpe_2)||0) + (parseInt(am.golpe_3)||0);
+                    // Define cor da linha baseada no solo (visual apenas)
+                    let corBorda = 'border-start border-4 border-secondary';
+                    if((am.tipo_solo||'').toLowerCase().includes('argila')) corBorda = 'border-start border-4 border-danger';
+                    if((am.tipo_solo||'').toLowerCase().includes('areia')) corBorda = 'border-start border-4 border-warning';
+
                     htmlAmostras += `
-                        <tr>
-                            <td class="fw-bold text-success">${parseFloat(am.profundidade_ini).toFixed(2)}m</td>
-                            <td>${am.golpe_1} - ${am.golpe_2} - ${am.golpe_3}</td>
-                            <td class="fw-bold bg-light text-center">${nspt}</td>
-                            <td class="text-muted small text-truncate" style="max-width: 150px;">${am.tipo_solo || '-'}</td>
+                        <tr class="${corBorda}">
+                            <td class="fw-bold">${parseFloat(am.profundidade_ini).toFixed(2)}m</td>
+                            <td>${am.golpe_1} / ${am.golpe_2} / ${am.golpe_3}</td>
+                            <td class="fw-bold text-center">${nspt}</td>
+                            <td class="text-muted small text-truncate" style="max-width: 200px;">${am.tipo_solo || '-'}</td>
                         </tr>
                     `;
                 });
 
                 let htmlFotos = '';
                 if(furo.fotos && furo.fotos.length > 0) {
-                    htmlFotos = `<div class="row g-2 mt-3 bg-white p-2 rounded border">`;
+                    htmlFotos = `<div class="d-flex gap-2 mt-3 overflow-auto pb-2">`;
                     furo.fotos.forEach(foto => {
                         htmlFotos += `
-                            <div class="col-4">
+                            <div style="min-width: 100px;">
                                 <a href="/api/foto-full/${foto.id}" target="_blank">
                                     <img src="/api/foto-full/${foto.id}" class="img-thumb shadow-sm" title="${foto.legenda}">
                                 </a>
                             </div>`;
                     });
                     htmlFotos += `</div>`;
+                } else {
+                    htmlFotos = '<div class="mt-3 text-muted small fst-italic"><i class="bi bi-camera-video-off me-1"></i>Sem fotos.</div>';
                 }
 
                 const cardHTML = `
-                    <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="col-md-6 col-xl-4 mb-4">
                         <div class="card card-furo shadow-sm h-100">
                             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                                <span class="fw-bold fs-5"><i class="bi bi-geo-alt-fill text-success me-2"></i>${furo.nome_furo}</span>
-                                <span class="badge bg-secondary">${furo.amostras.length}m perfurados</span>
+                                <div>
+                                    <span class="fw-bold fs-5 text-dark">${furo.nome_furo}</span>
+                                    <div class="small text-muted">Início: ${furo.data_inicio ? new Date(furo.data_inicio).toLocaleDateString() : '-'}</div>
+                                </div>
+                                <span class="badge bg-success rounded-pill">${furo.amostras.length}m perfurados</span>
                             </div>
                             <div class="card-body p-0">
-                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                                    <table class="table table-eng table-hover mb-0">
-                                        <thead><tr><th>Prof</th><th>Golpes</th><th>NSPT</th><th>Solo</th></tr></thead>
+                                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                                    <table class="table table-eng table-hover mb-0 align-middle">
+                                        <thead class="sticky-top"><tr><th>Prof</th><th>Golpes</th><th>NSPT</th><th>Solo</th></tr></thead>
                                         <tbody>${htmlAmostras}</tbody>
                                     </table>
                                 </div>
-                                <div class="p-3">
+                                <div class="p-3 border-top bg-light">
+                                    <small class="fw-bold text-uppercase text-muted">Galeria</small>
                                     ${htmlFotos}
                                 </div>
                             </div>
@@ -127,7 +156,7 @@
 
         // 3. AÇÃO DO BOTÃO PDF
         function gerarRelatorioPDF() {
-            if(confirm('Deseja gerar o Relatório Técnico Final (PDF) com gráficos e fotos?')) {
+            if(confirm('Gerar Relatório Técnico Final (PDF) com layout SondaMais?')) {
                 window.open(`/gerar-relatorio-tecnico/${propId}`, '_blank');
             }
         }

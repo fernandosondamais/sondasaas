@@ -11,9 +11,10 @@ const port = process.env.PORT || 3000;
 let adminLogado = false; 
 const SENHA_MESTRA = 'admin123';
 
+// CORES SONDAMAIS (Baseado no Logo)
 const COLORS = {
     PRIMARY: '#444444', 
-    ACCENT: '#6a9615', 
+    SONDA_GREEN: '#8CBF26', 
     BORDER: '#000000', 
     BG_HEADER: '#ffffff'
 };
@@ -26,7 +27,7 @@ const pool = new Pool({
     ssl: isProduction ? { rejectUnauthorized: false } : false
 });
 
-// AUMENTO DO LIMITE PARA ACEITAR FOTOS (50MB)
+// AUMENTO DO LIMITE PARA FOTOS (50MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
 app.use(express.static('public')); 
@@ -39,7 +40,7 @@ app.get('/boletim', (req, res) => res.sendFile(path.join(__dirname, 'public', 'b
 app.get('/engenharia', (req, res) => adminLogado ? res.sendFile(path.join(__dirname, 'public', 'engenharia.html')) : res.redirect('/login')); 
 app.get('/logout', (req, res) => { adminLogado = false; res.redirect('/login'); });
 
-// --- API GERAL (LOGIN E PROPOSTAS) ---
+// --- API GERAL ---
 app.post('/api/login', (req, res) => {
     if (req.body.senha === SENHA_MESTRA) { adminLogado = true; res.sendStatus(200); } else { res.sendStatus(401); }
 });
@@ -48,7 +49,7 @@ app.get('/api/propostas', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM propostas ORDER BY id DESC');
         res.json(result.rows);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar propostas' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro' }); }
 });
 
 app.delete('/api/propostas/:id', async (req, res) => {
@@ -59,7 +60,7 @@ app.delete('/api/propostas/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
-// --- API ENGENHARIA (DADOS COMPLETOS DA OBRA) ---
+// --- API ENGENHARIA ---
 app.get('/api/engenharia/:id', async (req, res) => {
     if (!adminLogado) return res.status(403).send('Acesso Negado');
     try {
@@ -79,7 +80,7 @@ app.get('/api/engenharia/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- API BOLETIM (CAMPO - INSERÇÃO DE DADOS) ---
+// --- API BOLETIM (CAMPO) ---
 app.get('/api/boletim/furos/:obraId', async (req, res) => { try { const r = await pool.query('SELECT * FROM furos WHERE proposta_id = $1 ORDER BY id ASC', [req.params.obraId]); res.json(r.rows); } catch (e) { res.status(500).json(e); } });
 app.post('/api/boletim/furos', async (req, res) => { const d = req.body; try { const r = await pool.query(`INSERT INTO furos (proposta_id, nome_furo, sondador, data_inicio, cota, nivel_agua_inicial) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, [d.proposta_id, d.nome_furo, d.sondador, d.data_inicio, d.cota, d.nivel_agua_inicial]); res.json({id: r.rows[0].id}); } catch (e) { res.status(500).json(e); } });
 app.put('/api/boletim/furos/:id', async (req, res) => { const {id} = req.params; const d = req.body; try { await pool.query(`UPDATE furos SET nivel_agua_inicial=$1, nivel_agua_final=$2, data_inicio=$3, data_termino=$4, coordenadas=$5 WHERE id=$6`, [d.nivel_agua_inicial, d.nivel_agua_final, d.data_inicio, d.data_termino, d.coordenadas, id]); res.sendStatus(200); } catch (e) { res.status(500).json(e); } });
@@ -89,70 +90,100 @@ app.get('/api/boletim/fotos/:furoId', async (req, res) => { try { const r = awai
 app.post('/api/boletim/fotos', async (req, res) => { const {furo_id, imagem_base64, legenda} = req.body; try { await pool.query(`INSERT INTO fotos (furo_id, imagem, legenda) VALUES ($1, $2, $3)`, [furo_id, imagem_base64, legenda]); res.sendStatus(200); } catch (e) { res.status(500).json(e); } });
 app.get('/api/foto-full/:id', async (req, res) => { try { const r = await pool.query('SELECT imagem FROM fotos WHERE id = $1', [req.params.id]); if(r.rows.length > 0) { const img = Buffer.from(r.rows[0].imagem.split(",")[1], 'base64'); res.writeHead(200, {'Content-Type': 'image/jpeg', 'Content-Length': img.length}); res.end(img); } else res.status(404).send('Not found'); } catch(e) { res.status(500).send(e); } });
 
-// --- GERADOR DE RELATÓRIO TÉCNICO (NOVA FUNÇÃO) ---
+// --- GERAÇÃO DO RELATÓRIO TÉCNICO (ESTILO SONDAMAIS) ---
 app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
     if (!adminLogado) return res.redirect('/login');
 
     try {
         const propId = req.params.id;
-        
-        // 1. Busca Dados
         const propRes = await pool.query('SELECT * FROM propostas WHERE id = $1', [propId]);
         const proposta = propRes.rows[0];
         const furosRes = await pool.query('SELECT * FROM furos WHERE proposta_id = $1 ORDER BY id ASC', [propId]);
         const furos = furosRes.rows;
 
-        // 2. Configura PDF
-        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+        // Configuração do PDF (A4 Vertical)
+        const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Relatorio_Tecnico_${proposta.id}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Relatorio_Tecnico_SondaMais_${proposta.id}.pdf"`);
         doc.pipe(res);
 
-        // 3. Loop por Furos
+        // -- CAPA --
+        doc.rect(0, 0, 595, 842).fill('white'); // Fundo Branco
+        const logoPath = path.join(__dirname, 'public', 'logo.png');
+        if (fs.existsSync(logoPath)) { 
+            doc.image(logoPath, 150, 100, { width: 300 }); 
+        }
+        
+        doc.fillColor(COLORS.SONDA_GREEN).font('Helvetica-Bold').fontSize(30).text('SONDAMAIS', 0, 450, { align: 'center' });
+        doc.fillColor(COLORS.PRIMARY).fontSize(20).text('SONDAGEM DE SOLO', 0, 490, { align: 'center' });
+        doc.fillColor('black').fontSize(12).text(proposta.cliente, 0, 600, { align: 'center' });
+        doc.text(proposta.endereco, 0, 620, { align: 'center' });
+        doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 0, 650, { align: 'center' });
+
+        // -- PÁGINAS DOS FUROS --
         for (let i = 0; i < furos.length; i++) {
             const furo = furos[i];
             const amosRes = await pool.query('SELECT * FROM amostras WHERE furo_id = $1 ORDER BY profundidade_ini ASC', [furo.id]);
             const amostras = amosRes.rows;
             const fotosRes = await pool.query('SELECT * FROM fotos WHERE furo_id = $1 ORDER BY id DESC', [furo.id]);
             
-            if (i > 0) doc.addPage(); 
+            doc.addPage();
 
-            // --- CABEÇALHO ---
-            doc.rect(30, 30, 535, 80).fill('#f0f0f0').stroke();
-            doc.fillColor('#444444').fontSize(16).font('Helvetica-Bold').text('PERFIL DE SONDAGEM - SPT', 50, 45);
-            doc.fontSize(10).font('Helvetica');
-            doc.text(`Cliente: ${proposta.cliente}`, 50, 70);
-            doc.text(`Obra: ${proposta.endereco}`, 50, 85);
-            doc.fontSize(12).font('Helvetica-Bold').text(`FURO: ${furo.nome_furo}`, 400, 45, { align: 'right' });
-            doc.fontSize(9).font('Helvetica').text(`Data: ${furo.data_inicio ? new Date(furo.data_inicio).toLocaleDateString() : '-'}`, 400, 70, {align: 'right'});
-            doc.text(`N.A.: ${furo.nivel_agua_inicial || 'Seco'} m`, 400, 85, {align: 'right'});
-
-            // --- DESENHO DO GRÁFICO ---
-            const startY = 130;
-            const scaleY = 40;  // Pixels por metro
-            const X_PROF = 40;
-            const X_GOLPES = 80;
-            const X_NSPT = 140;
-            const X_GRAPH = 170; // Área gráfica
-            const X_GRAPH_END = 320;
-            const X_PERFIL = 330;
-            const X_DESC = 370;
-
-            // Títulos
+            // -- CABEÇALHO DO FURO (ESTILO GRID) --
+            const topY = 30;
+            doc.rect(20, topY, 555, 60).stroke(); // Box Principal
+            
+            // Títulos e Dados
             doc.fontSize(8).font('Helvetica-Bold').fillColor('black');
-            doc.text('Prof(m)', X_PROF, startY - 15);
-            doc.text('Golpes', X_GOLPES, startY - 15);
-            doc.text('NSPT', X_NSPT, startY - 15);
-            doc.text('Gráfico (0-50)', X_GRAPH, startY - 15);
-            doc.text('Perfil', X_PERFIL, startY - 15);
-            doc.text('Descrição', X_DESC, startY - 15);
-            doc.moveTo(30, startY).lineTo(565, startY).stroke();
+            doc.text('CLIENTE:', 25, topY + 10);
+            doc.font('Helvetica').text(proposta.cliente, 70, topY + 10);
+            
+            doc.font('Helvetica-Bold').text('LOCAL:', 25, topY + 25);
+            doc.font('Helvetica').text(proposta.endereco, 70, topY + 25);
 
-            let currentY = startY + 10;
+            doc.font('Helvetica-Bold').text('FURO:', 450, topY + 10);
+            doc.fontSize(14).text(furo.nome_furo, 480, topY + 8);
+
+            doc.fontSize(8).font('Helvetica-Bold').text('INÍCIO:', 450, topY + 30);
+            doc.font('Helvetica').text(furo.data_inicio ? new Date(furo.data_inicio).toLocaleDateString() : '-', 490, topY + 30);
+
+            doc.font('Helvetica-Bold').text('N.A. (m):', 450, topY + 45);
+            doc.font('Helvetica').text(furo.nivel_agua_inicial || 'Seco', 490, topY + 45);
+
+            // -- COLUNAS DO PERFIL --
+            const headerY = 100;
+            const yStart = 120;
+            const colProf = 20;   // Profundidade
+            const colGraf = 60;   // Gráfico
+            const colGolpes = 200; // Golpes
+            const colNSPT = 260;  // NSPT
+            const colPerfil = 300; // Desenho Solo
+            const colDesc = 340;  // Descrição
+
+            // Títulos Colunas
+            doc.font('Helvetica-Bold').fontSize(8);
+            doc.text('Prof(m)', colProf, headerY);
+            doc.text('Gráfico SPT (0-50)', colGraf, headerY);
+            doc.text('Golpes', colGolpes, headerY);
+            doc.text('NSPT', colNSPT, headerY);
+            doc.text('Perfil', colPerfil, headerY);
+            doc.text('Descrição do Material', colDesc, headerY);
+            
+            doc.moveTo(20, yStart).lineTo(575, yStart).stroke();
+
+            let currentY = yStart + 10;
+            let scaleY = 30; // 30 pixels por metro
             let pontosGrafico = [];
 
+            // -- LOOP DAS AMOSTRAS --
             for (let am of amostras) {
-                if (currentY > 750) { doc.addPage(); currentY = 50; }
+                // Quebra de página se encher
+                if (currentY > 750) { 
+                    doc.addPage(); 
+                    currentY = 50; 
+                    // Redesenha título simples se quebrar página
+                    doc.text('Continuação...', 20, 30);
+                }
 
                 const prof = parseFloat(am.profundidade_ini);
                 const g1 = am.golpe_1 || 0;
@@ -160,114 +191,111 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
                 const g3 = am.golpe_3 || 0;
                 const nspt = parseInt(g2) + parseInt(g3);
 
-                // Texto
-                doc.font('Helvetica').fontSize(9);
-                doc.text(prof.toFixed(2), X_PROF, currentY);
-                doc.text(`${g1}/${g2}/${g3}`, X_GOLPES, currentY);
-                doc.font('Helvetica-Bold').text(nspt, X_NSPT, currentY);
+                // 1. Profundidade
+                doc.font('Helvetica').fontSize(9).fillColor('black');
+                doc.text(prof.toFixed(2), colProf, currentY);
+
+                // 2. Golpes Texto
+                doc.fontSize(8);
+                doc.text(`${g1} / ${g2} / ${g3}`, colGolpes, currentY);
+
+                // 3. NSPT (Negrito)
+                doc.font('Helvetica-Bold').fontSize(10);
+                doc.text(nspt.toString(), colNSPT, currentY);
+
+                // 4. Perfil Visual (COR DO SOLO)
+                // Lógica de cores baseada no texto do solo (Referência SondaMais)
+                let corSolo = '#e0e0e0'; // Cinza padrão
+                const desc = (am.tipo_solo || '').toLowerCase();
                 
-                // Descrição
-                doc.font('Helvetica').fontSize(8);
-                doc.text(am.tipo_solo || '-', X_DESC, currentY, { width: 190 });
+                if(desc.includes('argila')) corSolo = '#D2691E'; // Chocolate (Argila)
+                else if(desc.includes('areia')) corSolo = '#F0E68C'; // Khaki (Areia)
+                else if(desc.includes('silte')) corSolo = '#8FBC8F'; // Verde (Silte)
+                else if(desc.includes('aterro')) corSolo = '#A9A9A9'; // Cinza Escuro
 
-                // Retângulo Perfil (Hachura Simples)
-                let cor = '#eeeeee';
-                const tipo = (am.tipo_solo || '').toLowerCase();
-                if(tipo.includes('argila')) cor = '#e6b8af';
-                if(tipo.includes('areia')) cor = '#fff2cc';
                 doc.save();
-                doc.rect(X_PERFIL, currentY - 5, 30, scaleY).fill(cor);
+                doc.rect(colPerfil, currentY - 5, 30, scaleY).fill(corSolo);
                 doc.restore();
-                doc.rect(X_PERFIL, currentY - 5, 30, scaleY).stroke();
+                doc.rect(colPerfil, currentY - 5, 30, scaleY).stroke();
 
-                // Ponto do Gráfico
-                let xPoint = X_GRAPH + (nspt * 3);
-                if (xPoint > X_GRAPH_END) xPoint = X_GRAPH_END;
-                pontosGrafico.push({ x: xPoint, y: currentY + 5 });
-                doc.circle(xPoint, currentY + 5, 2).fillColor('red').fill();
+                // 5. Descrição Texto
+                doc.font('Helvetica').fontSize(8).fillColor('black');
+                doc.text(am.tipo_solo || '-', colDesc, currentY, { width: 220 });
+
+                // 6. Dados para o Gráfico
+                // Escala: 0 a 50 golpes = 120 pixels de largura (aprox 2.4px por golpe)
+                let xG = colGraf + (nspt * 2.4);
+                if (xG > colGraf + 120) xG = colGraf + 120; // Limite gráfico
+                pontosGrafico.push({ x: xG, y: currentY + 5 });
+
+                // Desenha ponto vermelho
+                doc.circle(xG, currentY + 5, 2).fillColor('red').fill();
 
                 currentY += scaleY;
             }
 
-            // Linha do Gráfico
+            // -- DESENHAR A LINHA DO GRÁFICO (Conectar pontos) --
             if (pontosGrafico.length > 1) {
                 doc.save();
                 doc.strokeColor('red').lineWidth(1.5);
                 doc.moveTo(pontosGrafico[0].x, pontosGrafico[0].y);
-                for (let p of pontosGrafico) doc.lineTo(p.x, p.y);
+                for (let p of pontosGrafico) {
+                    doc.lineTo(p.x, p.y);
+                }
                 doc.stroke();
                 doc.restore();
             }
 
-            // Grade do Gráfico
+            // -- GRADE DE FUNDO DO GRÁFICO --
             doc.save();
             doc.strokeColor('#cccccc').lineWidth(0.5).dash(2, { space: 2 });
+            // Linhas verticais a cada 10 golpes (10, 20, 30, 40, 50)
             for(let g=10; g<=50; g+=10) {
-                let xG = X_GRAPH + (g * 3);
-                doc.moveTo(xG, startY).lineTo(xG, currentY).stroke();
+                let lineX = colGraf + (g * 2.4);
+                doc.moveTo(lineX, yStart).lineTo(lineX, currentY).stroke();
+                // Numerozinho no topo
+                doc.fontSize(6).text(g.toString(), lineX - 3, yStart - 10);
             }
             doc.restore();
 
-            // --- FOTOS ---
+            // -- FOTOS DO FURO --
             if(fotosRes.rows.length > 0) {
                 doc.addPage();
-                doc.fontSize(14).fillColor('black').text(`Relatório Fotográfico - ${furo.nome_furo}`, {align: 'center'});
-                doc.moveDown();
+                doc.rect(20, 20, 555, 30).fill(COLORS.SONDA_GREEN);
+                doc.fillColor('white').fontSize(14).font('Helvetica-Bold').text(`REGISTRO FOTOGRÁFICO - ${furo.nome_furo}`, 30, 30);
+                doc.fillColor('black');
                 
-                let xFoto = 50, yFoto = 100, count = 0;
+                let xFoto = 40;
+                let yFoto = 80;
+                let count = 0;
+
                 for(let foto of fotosRes.rows) {
                     try {
                         const imgBuffer = Buffer.from(foto.imagem.split(",")[1], 'base64');
-                        doc.image(imgBuffer, xFoto, yFoto, { width: 220, height: 160, fit: [220, 160] });
-                        doc.fontSize(10).text(foto.legenda || '', xFoto, yFoto + 165, {width: 220, align: 'center'});
+                        doc.image(imgBuffer, xFoto, yFoto, { width: 240, height: 180, fit: [240, 180] });
                         
+                        // Legenda
+                        doc.rect(xFoto, yFoto + 180, 240, 20).fill('#f0f0f0');
+                        doc.fillColor('black').fontSize(9).text(foto.legenda || 'Foto', xFoto + 5, yFoto + 186, {width: 230, align: 'center'});
+
                         count++;
-                        if (count % 2 === 1) { xFoto = 300; } 
-                        else { xFoto = 50; yFoto += 220; }
+                        if (count % 2 === 1) { xFoto = 310; } // Vai pra direita
+                        else { xFoto = 40; yFoto += 220; } // Vai pra baixo
                         
-                        if(yFoto > 700 && count < fotosRes.rows.length) { doc.addPage(); yFoto = 50; xFoto = 50; count=0; }
-                    } catch(e) { console.error('Erro foto', e); }
+                        if(yFoto > 700) { doc.addPage(); yFoto = 80; xFoto = 40; count=0; }
+
+                    } catch(e) { console.error('Erro imagem', e); }
                 }
             }
         }
+
         doc.end();
-    } catch (err) { console.error(err); res.status(500).send('Erro ao gerar relatório'); }
-});
 
-// --- CRIAÇÃO DE PROPOSTA (COMERCIAL) ---
-app.post('/gerar-proposta', async (req, res) => { 
-    const d = req.body; const v_furos = parseInt(d.furos)||0; const v_metragem = parseFloat(d.metragem)||0; 
-    const valor_total = (v_metragem * parseFloat(d.valor_metro)) + parseFloat(d.art) + parseFloat(d.mobilizacao) - parseFloat(d.desconto); 
-    try { 
-        const sql=`INSERT INTO propostas (cliente, telefone, email, endereco, furos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total, criterio, detalhe_criterio) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, data_criacao`; 
-        const v=[d.cliente, d.telefone, d.email, d.endereco, v_furos, v_metragem, d.art, d.mobilizacao, d.desconto, valor_total, d.criterio_tecnico, d.detalhe_criterio]; 
-        const dbRes=await pool.query(sql, v); 
-        const dadosPDF = { id: dbRes.rows[0].id, data: new Date().toLocaleDateString('pt-BR'), ...d, furos: v_furos, metragem: v_metragem, valor_metro: d.valor_metro, subtotal_sondagem: v_metragem * d.valor_metro, art: d.art, mobilizacao: d.mobilizacao, desconto: d.desconto, total: valor_total, criterio: d.criterio_tecnico, detalhe_criterio: d.detalhe_criterio };
-        gerarPDFDinamico(res, dadosPDF);
-    } catch(e){console.error(e); res.status(500).send('Erro');} 
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Erro ao gerar relatório técnico');
+    }
 });
-
-app.get('/reemitir-pdf/:id', async (req, res) => { 
-    if (!adminLogado) return res.redirect('/login');
-    try {
-        const result = await pool.query('SELECT * FROM propostas WHERE id = $1', [req.params.id]);
-        if (result.rows.length === 0) return res.status(404).send('Não encontrado');
-        const row = result.rows[0];
-        const dadosPDF = { id: row.id, data: new Date(row.data_criacao).toLocaleDateString('pt-BR'), cliente: row.cliente, telefone: row.telefone, email: row.email, endereco: row.endereco, furos: row.furos, metragem: row.metragem_total, valor_metro: 0, subtotal_sondagem: 0, art: row.valor_art, mobilizacao: row.valor_mobilizacao, desconto: row.valor_desconto, total: row.valor_total, criterio: row.criterio, detalhe_criterio: row.detalhe_criterio };
-        gerarPDFDinamico(res, dadosPDF);
-    } catch (err) { res.status(500).send('Erro'); }
-});
-
-function gerarPDFDinamico(res, d) {
-    const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Proposta_${d.id}.pdf"`);
-    doc.pipe(res);
-    // (Lógica do PDF Comercial mantida simples para economizar linhas, pois o foco agora é o Técnico)
-    doc.fontSize(14).text('ORÇAMENTO SONDAMAIS - ' + d.cliente);
-    doc.fontSize(10).text(`Total: R$ ${d.total}`);
-    doc.end();
-}
 
 // --- INIT SQL ---
 const initSQL = `
