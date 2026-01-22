@@ -9,24 +9,11 @@
     <style>
         :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
         body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        
         .header-sonda { background-color: white; border-bottom: 4px solid var(--sonda-green); padding: 20px 0; margin-bottom: 30px; }
         .btn-sonda { background-color: var(--sonda-green); color: white; font-weight: bold; border: none; padding: 12px 30px; }
         .btn-sonda:hover { background-color: #567a10; color: white; }
-        
-        /* Card de Totais Flutuante */
-        .total-card {
-            background: var(--sonda-dark);
-            color: white;
-            position: sticky;
-            top: 20px;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
+        .total-card { background: var(--sonda-dark); color: white; position: sticky; top: 20px; border-radius: 10px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .total-highlight { color: #a3d646; font-size: 1.8rem; font-weight: bold; }
-        
-        /* Destaque para o Assistente */
         .bg-assistant { background-color: #e8f5e9; border-left: 5px solid var(--sonda-green); }
         .assistant-info { font-size: 0.85rem; background: white; padding: 10px; border-radius: 5px; border: 1px solid #c3e6cb; }
     </style>
@@ -41,7 +28,7 @@
                 </div>
                 <div>
                     <h4 class="m-0 fw-bold" style="color: var(--sonda-dark);">SondaSaaS</h4>
-                    <small class="text-muted">Gerador de Orçamentos Inteligente</small>
+                    <small class="text-muted">Gerador Inteligente v1.0</small>
                 </div>
             </div>
             <a href="/login" class="btn btn-outline-secondary btn-sm"><i class="bi bi-lock"></i> Área Admin</a>
@@ -58,92 +45,53 @@
                     <div class="card-body p-4">
                         <form id="propostaForm" action="/gerar-proposta" method="POST">
                             
+                            <input type="hidden" name="criterio_tecnico" id="input_criterio_backend" value="norma">
+                            <input type="hidden" name="detalhe_criterio" id="input_detalhe_backend" value="">
+
                             <h6 class="text-muted border-bottom pb-2 mb-3">Informações do Cliente</h6>
                             <div class="row g-3 mb-4">
-                                <div class="col-md-6">
-                                    <label class="form-label">Nome do Cliente / Empresa</label>
-                                    <input type="text" name="cliente" class="form-control bg-light" required placeholder="Ex: João da Silva">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Endereço da Obra</label>
-                                    <input type="text" name="endereco" class="form-control bg-light" required placeholder="Rua, Número, Cidade">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Telefone / WhatsApp</label>
-                                    <input type="text" name="telefone" class="form-control bg-light" placeholder="(00) 00000-0000">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">E-mail</label>
-                                    <input type="email" name="email" class="form-control bg-light" placeholder="email@cliente.com">
-                                </div>
+                                <div class="col-md-6"><label class="form-label">Nome do Cliente</label><input type="text" name="cliente" class="form-control bg-light" required></div>
+                                <div class="col-md-6"><label class="form-label">Endereço da Obra</label><input type="text" name="endereco" class="form-control bg-light" required></div>
+                                <div class="col-md-6"><label class="form-label">Telefone</label><input type="text" name="telefone" class="form-control bg-light"></div>
+                                <div class="col-md-6"><label class="form-label">E-mail</label><input type="email" name="email" class="form-control bg-light"></div>
                             </div>
 
                             <div class="p-3 mb-4 rounded bg-assistant">
                                 <h6 class="fw-bold text-success mb-3"><i class="bi bi-robot me-1"></i>Assistente de Sondagem (NBR 6484:2020)</h6>
-                                
                                 <div class="row g-3">
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold small">Área do Terreno (m²)</label>
                                         <input type="number" id="area_terreno" class="form-control border-success" placeholder="Ex: 250">
                                     </div>
-
                                     <div class="col-md-8">
-                                        <label class="form-label fw-bold small">Critério de Paralisação (Profundidade)</label>
+                                        <label class="form-label fw-bold small">Critério de Paralisação</label>
                                         <select id="criterio" class="form-select border-success">
                                             <option value="norma">Critério de Norma (NBR 6484:2020)</option>
                                             <option value="cota">Furo por Cota (Profundidade Fixa)</option>
                                         </select>
                                     </div>
-
                                     <div class="col-md-12" id="divCota" style="display: none;">
-                                        <label class="form-label small text-primary">Profundidade Solicitada pelo Projetista (metros por furo)</label>
+                                        <label class="form-label small text-primary">Profundidade Fixa (m/furo)</label>
                                         <input type="number" id="profundidade_cota" class="form-control" value="15">
                                     </div>
-
-                                    <div class="col-12">
-                                        <div class="assistant-info text-muted" id="textoExplicativo">
-                                            <i class="bi bi-info-circle me-1"></i> Digite a área para calcular os furos. O padrão é seguir a NBR 6484:2020.
-                                        </div>
-                                    </div>
+                                    <div class="col-12"><div class="assistant-info text-muted" id="textoExplicativo"><i class="bi bi-info-circle me-1"></i> Digite a área para calcular os furos.</div></div>
                                 </div>
                             </div>
 
                             <h6 class="text-muted border-bottom pb-2 mb-3">Definição do Serviço</h6>
                             <div class="row g-3 mb-3">
-                                <div class="col-md-4">
-                                    <label class="form-label fw-bold">Qtd. Furos</label>
-                                    <input type="number" id="furos" name="furos" class="form-control calc-input bg-white fw-bold" required value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fw-bold">Metragem Total (m)</label>
-                                    <input type="number" id="metragem" name="metragem" class="form-control calc-input fw-bold" required step="0.1" placeholder="Ex: 40">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Valor por Metro (R$)</label>
-                                    <input type="number" id="valor_metro" name="valor_metro" class="form-control calc-input" required step="0.01" value="55.00">
-                                </div>
+                                <div class="col-md-4"><label class="form-label fw-bold">Qtd. Furos</label><input type="number" id="furos" name="furos" class="form-control calc-input bg-white fw-bold" required value="0"></div>
+                                <div class="col-md-4"><label class="form-label fw-bold">Metragem Total (m)</label><input type="number" id="metragem" name="metragem" class="form-control calc-input fw-bold" required step="0.1"></div>
+                                <div class="col-md-4"><label class="form-label">Valor/Metro (R$)</label><input type="number" id="valor_metro" name="valor_metro" class="form-control calc-input" required step="0.01" value="55.00"></div>
                             </div>
 
                             <div class="row g-3 mb-4">
-                                <div class="col-md-4">
-                                    <label class="form-label">Taxa ART (R$)</label>
-                                    <input type="number" id="art" name="art" class="form-control calc-input" value="100.00">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Mobilização (R$)</label>
-                                    <input type="number" id="mobilizacao" name="mobilizacao" class="form-control calc-input" value="150.00">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label text-danger">Desconto (R$)</label>
-                                    <input type="number" id="desconto" name="desconto" class="form-control calc-input text-danger" value="0">
-                                </div>
+                                <div class="col-md-4"><label class="form-label">Taxa ART (R$)</label><input type="number" id="art" name="art" class="form-control calc-input" value="100.00"></div>
+                                <div class="col-md-4"><label class="form-label">Mobilização (R$)</label><input type="number" id="mobilizacao" name="mobilizacao" class="form-control calc-input" value="150.00"></div>
+                                <div class="col-md-4"><label class="form-label text-danger">Desconto (R$)</label><input type="number" id="desconto" name="desconto" class="form-control calc-input text-danger" value="0"></div>
                             </div>
 
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-sonda btn-lg shadow-sm">
-                                    <i class="bi bi-check-circle-fill me-2"></i>GERAR PROPOSTA (PDF)
-                                </button>
-                            </div>
+                            <div class="d-grid"><button type="submit" class="btn btn-sonda btn-lg shadow-sm"><i class="bi bi-check-circle-fill me-2"></i>GERAR PROPOSTA (PDF)</button></div>
                         </form>
                     </div>
                 </div>
@@ -152,87 +100,64 @@
             <div class="col-lg-4 mt-4 mt-lg-0">
                 <div class="total-card">
                     <h5 class="border-bottom pb-2 mb-3"><i class="bi bi-calculator me-2"></i>Resumo</h5>
-                    
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Sondagem:</span>
-                        <span id="previewSondagem">R$ 0,00</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Taxas:</span>
-                        <span id="previewTaxas">R$ 0,00</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-3 text-danger">
-                        <span>Descontos:</span>
-                        <span id="previewDesconto">- R$ 0,00</span>
-                    </div>
-                    
-                    <div class="border-top pt-3">
-                        <small class="d-block text-white-50">VALOR TOTAL</small>
-                        <div id="previewTotal" class="total-highlight">R$ 0,00</div>
-                    </div>
+                    <div class="d-flex justify-content-between mb-2"><span>Sondagem:</span><span id="previewSondagem">R$ 0,00</span></div>
+                    <div class="d-flex justify-content-between mb-2"><span>Taxas:</span><span id="previewTaxas">R$ 0,00</span></div>
+                    <div class="d-flex justify-content-between mb-3 text-danger"><span>Descontos:</span><span id="previewDesconto">- R$ 0,00</span></div>
+                    <div class="border-top pt-3"><small class="d-block text-white-50">VALOR TOTAL</small><div id="previewTotal" class="total-highlight">R$ 0,00</div></div>
                 </div>
-                
-                <div class="mt-3 text-center small text-muted">
-                    <i class="bi bi-shield-check"></i> Parâmetros conforme <strong>NBR 6484:2020</strong>.
-                </div>
+                <div class="mt-3 text-center small text-muted"><i class="bi bi-shield-check"></i> Parâmetros conforme <strong>NBR 6484:2020</strong>.</div>
             </div>
         </div>
     </div>
 
     <script>
-        // ELEMENTOS
         const inputArea = document.getElementById('area_terreno');
         const selectCriterio = document.getElementById('criterio');
         const divCota = document.getElementById('divCota');
         const inputCota = document.getElementById('profundidade_cota');
         const textoExp = document.getElementById('textoExplicativo');
-        
         const inputFuros = document.getElementById('furos');
         const inputMetragem = document.getElementById('metragem');
+        
+        // HIDDEN INPUTS (Para enviar ao Backend)
+        const hiddenCriterio = document.getElementById('input_criterio_backend');
+        const hiddenDetalhe = document.getElementById('input_detalhe_backend');
 
-        // TEXTOS TÉCNICOS AJUSTADOS
-        const TXT_NORMA = `<strong>Critério de Norma:</strong> A perfuração avança até atingir o critério técnico de paralisação (NBR 6484:2020, item 5.2.4).`;
-        const TXT_COTA = `<strong>Furo por Cota:</strong> Profundidade fixa solicitada pelo engenheiro calculista.<br>Iremos perfurar até atingir a cota estabelecida (ex: 15m).`;
+        const TXT_NORMA = `<strong>Critério de Norma:</strong> Perfuração até atingir critério técnico de paralisação (NBR 6484:2020, item 5.2.4).`;
+        const TXT_COTA = `<strong>Furo por Cota:</strong> Profundidade fixa solicitada pelo engenheiro calculista (ex: 15m).`;
 
         function atualizarAssistente() {
             const area = parseFloat(inputArea.value) || 0;
             const modo = selectCriterio.value;
 
-            // Define Furos pela Área (Boas Práticas de Mercado)
+            // 1. Atualiza Hidden Input
+            hiddenCriterio.value = modo;
+
             let qtdFuros = 0;
             if (area > 0) {
-                if (area <= 200) qtdFuros = 2;
-                else if (area <= 400) qtdFuros = 3;
-                else qtdFuros = 3 + Math.ceil((area - 400) / 200); 
+                if (area <= 200) qtdFuros = 2; else if (area <= 400) qtdFuros = 3; else qtdFuros = 3 + Math.ceil((area - 400) / 200); 
                 inputFuros.value = qtdFuros;
             }
 
-            // Define Metragem e Texto pelo Critério
             if (modo === 'norma') {
                 divCota.style.display = 'none';
                 textoExp.innerHTML = TXT_NORMA;
-                // Estimativa inicial: 15m por furo
-                if(qtdFuros > 0 && inputMetragem.value == 0) {
-                    inputMetragem.value = qtdFuros * 15; 
-                }
+                hiddenDetalhe.value = "Conforme NBR 6484:2020"; // Info para o PDF
+                if(qtdFuros > 0 && inputMetragem.value == 0) inputMetragem.value = qtdFuros * 15; 
             } else {
                 divCota.style.display = 'block';
                 textoExp.innerHTML = TXT_COTA;
-                // Cálculo exato: Furos x Profundidade
                 const prof = parseFloat(inputCota.value) || 0;
-                if(qtdFuros > 0) {
-                    inputMetragem.value = qtdFuros * prof;
-                }
+                hiddenDetalhe.value = `Furo por Cota Fixa: ${prof}m`; // Info para o PDF
+                if(qtdFuros > 0) inputMetragem.value = qtdFuros * prof;
             }
             calcularTotais();
         }
 
-        // LISTENERS
         inputArea.addEventListener('input', atualizarAssistente);
         selectCriterio.addEventListener('change', atualizarAssistente);
         inputCota.addEventListener('input', atualizarAssistente);
 
-        // CÁLCULO FINANCEIRO
         const inputsCalc = document.querySelectorAll('.calc-input');
         inputsCalc.forEach(input => input.addEventListener('input', calcularTotais));
 
@@ -242,19 +167,14 @@
             const art = parseFloat(document.getElementById('art').value) || 0;
             const mobilizacao = parseFloat(document.getElementById('mobilizacao').value) || 0;
             const desconto = parseFloat(document.getElementById('desconto').value) || 0;
-
-            const totalSondagem = metragem * valorMetro;
-            const totalTaxas = art + mobilizacao;
-            const totalGeral = totalSondagem + totalTaxas - desconto;
-
+            const total = (metragem * valorMetro) + art + mobilizacao - desconto;
+            
             const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-            document.getElementById('previewSondagem').innerText = fmt(totalSondagem);
-            document.getElementById('previewTaxas').innerText = fmt(totalTaxas);
+            document.getElementById('previewSondagem').innerText = fmt(metragem * valorMetro);
+            document.getElementById('previewTaxas').innerText = fmt(art + mobilizacao);
             document.getElementById('previewDesconto').innerText = '- ' + fmt(desconto);
-            document.getElementById('previewTotal').innerText = fmt(totalGeral);
+            document.getElementById('previewTotal').innerText = fmt(total);
         }
-
         atualizarAssistente();
     </script>
 </body>
