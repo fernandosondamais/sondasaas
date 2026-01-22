@@ -10,12 +10,9 @@
     <style>
         :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
         body { background-color: #f8f9fa; }
-        
         .navbar-sonda { background-color: var(--sonda-green); color: white; }
         .navbar-brand { font-weight: bold; color: white !important; }
         .search-card { border: none; border-left: 5px solid var(--sonda-green); }
-        
-        /* Link de WhatsApp */
         .zap-link { text-decoration: none; color: #555; transition: 0.2s; }
         .zap-link:hover { color: #25D366; font-weight: bold; }
     </style>
@@ -28,6 +25,10 @@
                 <i class="bi bi-building-gear me-2"></i>SondaSaaS <small class="fw-light">| Painel Administrativo</small>
             </span>
             <div class="d-flex gap-2">
+                <a href="/boletim" class="btn btn-dark btn-sm fw-bold border-0" target="_blank">
+                    <i class="bi bi-cone-striped me-1"></i> Área Técnica (Sondador)
+                </a>
+                
                 <button onclick="exportarCSV()" class="btn btn-light btn-sm fw-bold text-success">
                     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Relatório
                 </button>
@@ -39,7 +40,6 @@
     </nav>
 
     <div class="container">
-        
         <div class="card shadow-sm mb-4 search-card">
             <div class="card-body d-flex align-items-center gap-3">
                 <i class="bi bi-search text-muted fs-4"></i>
@@ -76,19 +76,14 @@
     <script>
         let todasPropostas = []; 
 
-        // Função Auxiliar: Gera link do WhatsApp
         function gerarLinkZap(telefone, nome, id) {
             if (!telefone) return '#';
-            // Remove tudo que não é número
             let numeros = telefone.replace(/\D/g, '');
-            // Se não tiver código do país (55), adiciona
             if (numeros.length <= 11) numeros = '55' + numeros;
-            
             const texto = `Olá ${nome}, referente ao orçamento de sondagem #${id} da SondaMais...`;
             return `https://wa.me/${numeros}?text=${encodeURIComponent(texto)}`;
         }
 
-        // 1. Carregar Dados
         fetch('/api/propostas')
             .then(res => res.json())
             .then(data => {
@@ -106,14 +101,10 @@
                     const dataFmt = new Date(p.data_criacao).toLocaleDateString('pt-BR');
                     const valorFmt = parseFloat(p.valor_total).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
                     
-                    // Lógica do Telefone/WhatsApp
                     let displayTel = '<span class="text-muted">-</span>';
                     if (p.telefone) {
                         const linkZap = gerarLinkZap(p.telefone, p.cliente, p.id);
-                        displayTel = `
-                            <a href="${linkZap}" target="_blank" class="zap-link" title="Chamar no WhatsApp">
-                                <i class="bi bi-whatsapp me-1 text-success"></i>${p.telefone}
-                            </a>`;
+                        displayTel = `<a href="${linkZap}" target="_blank" class="zap-link" title="Chamar no WhatsApp"><i class="bi bi-whatsapp me-1 text-success"></i>${p.telefone}</a>`;
                     }
 
                     tr.innerHTML = `
@@ -126,12 +117,8 @@
                         </td>
                         <td class="fw-bold text-success">${valorFmt}</td>
                         <td class="text-end pe-4">
-                            <a href="/reemitir-pdf/${p.id}" class="btn btn-sm btn-outline-sonda me-1" target="_blank" title="Baixar PDF">
-                                <i class="bi bi-file-earmark-pdf"></i>
-                            </a>
-                            <button onclick="deletar(${p.id})" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                            <a href="/reemitir-pdf/${p.id}" class="btn btn-sm btn-outline-sonda me-1" target="_blank" title="Baixar PDF"><i class="bi bi-file-earmark-pdf"></i></a>
+                            <button onclick="deletar(${p.id})" class="btn btn-sm btn-outline-danger" title="Excluir"><i class="bi bi-trash"></i></button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -139,10 +126,9 @@
             })
             .catch(err => {
                 console.error(err);
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar.</td></tr>';
+                document.querySelector('#tabelaPropostas tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar.</td></tr>';
             });
 
-        // 2. Busca
         document.getElementById('inputBusca').addEventListener('keyup', function() {
             const termo = this.value.toLowerCase();
             const linhas = document.querySelectorAll('#tabelaPropostas tbody tr');
@@ -152,16 +138,12 @@
             });
         });
 
-        // 3. Deletar
         function deletar(id) {
             if(confirm('Tem certeza?')) {
-                fetch('/api/propostas/' + id, { method: 'DELETE' }).then(res => {
-                    if(res.ok) location.reload();
-                });
+                fetch('/api/propostas/' + id, { method: 'DELETE' }).then(res => { if(res.ok) location.reload(); });
             }
         }
 
-        // 4. Exportar CSV
         function exportarCSV() {
             if (todasPropostas.length === 0) { alert("Sem dados."); return; }
             let csv = "ID;Data;Cliente;Email;Telefone;Metragem;Furos;Total (R$)\n";
