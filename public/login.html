@@ -1,95 +1,121 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SondaSaaS - Acesso Restrito</title>
+    <title>Login - SondaSaaS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f7f6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+        :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
+        
+        body { 
+            background-color: #f4f6f9; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
             margin: 0;
+            font-family: 'Segoe UI', sans-serif;
         }
+
         .login-card {
-            background-color: white;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 350px;
-            text-align: center;
-            border-top: 5px solid #003366; /* Azul SondaMais */
-        }
-        h2 {
-            color: #003366;
-            margin-bottom: 20px;
-        }
-        input[type="password"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-            margin-bottom: 20px;
-            font-size: 16px;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #8CBF26; /* Verde SondaMais */
-            color: white;
             border: none;
-            border-radius: 4px;
-            font-size: 16px;
+            border-top: 5px solid var(--sonda-green);
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
+        }
+
+        .login-header {
+            background: white;
+            padding: 30px 20px 10px;
+            text-align: center;
+        }
+
+        .icon-circle {
+            width: 70px;
+            height: 70px;
+            background: #f0f0f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            color: var(--sonda-green);
+        }
+
+        .btn-sonda {
+            background-color: var(--sonda-green);
+            color: white;
             font-weight: bold;
-            cursor: pointer;
-            transition: background 0.3s;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 6px;
+            transition: 0.3s;
         }
-        button:hover {
-            background-color: #7aa620;
-        }
-        .error-msg {
-            color: #cc0000;
-            margin-top: 15px;
-            font-size: 0.9em;
-            display: none;
-        }
-        .back-link {
-            display: block;
-            margin-top: 20px;
-            color: #666;
-            text-decoration: none;
-            font-size: 0.9em;
+        .btn-sonda:hover { background-color: #567a10; color: white; }
+
+        .form-control:focus {
+            border-color: var(--sonda-green);
+            box-shadow: 0 0 0 0.25rem rgba(106, 150, 21, 0.25);
         }
     </style>
 </head>
 <body>
 
-    <div class="login-card">
-        <h2>Acesso Administrativo</h2>
-        <p style="color: #666; font-size: 0.9em; margin-bottom: 25px;">Digite a senha mestra para acessar o dashboard financeiro.</p>
-        
-        <form id="loginForm">
-            <input type="password" id="senha" placeholder="Senha de Acesso" required autofocus>
-            <button type="submit">ENTRAR</button>
-            <div class="error-msg" id="msgErro">Senha incorreta.</div>
-        </form>
-
-        <a href="/" class="back-link">← Voltar para o Site</a>
+    <div class="container p-3">
+        <div class="login-card mx-auto">
+            <div class="login-header">
+                <div class="icon-circle shadow-sm">
+                    <i class="bi bi-layers-half fs-1"></i>
+                </div>
+                <h4 class="fw-bold" style="color: var(--sonda-dark)">SondaSaaS</h4>
+                <p class="text-muted small">Acesso Restrito Administrativo</p>
+            </div>
+            
+            <div class="card-body p-4 bg-white">
+                <form id="loginForm">
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">SENHA DE ACESSO</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-key"></i></span>
+                            <input type="password" id="senha" class="form-control bg-light border-start-0" placeholder="Digite a senha mestra" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-sonda shadow-sm mb-3">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>ENTRAR NO SISTEMA
+                    </button>
+                    
+                    <div class="text-center">
+                        <a href="/" class="text-decoration-none small text-muted">
+                            <i class="bi bi-arrow-left me-1"></i>Voltar para Orçamentos
+                        </a>
+                    </div>
+                </form>
+            </div>
+            <div class="bg-light p-3 text-center border-top">
+                <small class="text-muted" style="font-size: 0.75rem;">&copy; 2026 Sondamais Engenharia</small>
+            </div>
+        </div>
     </div>
 
     <script>
-        document.getElementById('loginForm').onsubmit = async (e) => {
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const senha = document.getElementById('senha').value;
-            const msgErro = document.getElementById('msgErro');
+            const btn = document.querySelector('button[type="submit"]');
             
+            // Feedback visual
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Verificando...';
+            btn.disabled = true;
+
             try {
-                // Envia a senha para validação no Backend
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -97,19 +123,19 @@
                 });
 
                 if (res.ok) {
-                    // Se a senha estiver certa, o backend autoriza e redirecionamos
                     window.location.href = '/admin';
                 } else {
-                    msgErro.style.display = 'block';
-                    document.getElementById('senha').value = '';
-                    document.getElementById('senha').focus();
+                    alert('Senha incorreta!');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
                 }
             } catch (err) {
                 console.error(err);
                 alert('Erro de conexão.');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             }
-        };
+        });
     </script>
-
 </body>
 </html>
