@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Boletim de Campo | SondaSaaS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+        
+        .header-campo {
+            background-color: var(--sonda-dark);
+            color: white;
+            padding: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .card-obra {
+            border: none;
+            border-left: 5px solid var(--sonda-green);
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .card-obra:active { transform: scale(0.98); }
+
+        .btn-grande {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        /* Estilo da Tabela de Golpes (Tipo Excel) */
+        .table-golpes input {
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            padding: 8px 0;
+        }
+        .table-golpes td { padding: 0; border: 1px solid #dee2e6; vertical-align: middle; }
+        .table-golpes tr:nth-child(even) { background-color: #f8f9fa; }
+        .input-solo { text-align: left !important; padding-left: 10px !important; font-weight: normal !important; font-size: 0.9rem !important; }
+
+        /* Navegação entre Telas */
+        .tela { display: none; }
+        .tela.ativa { display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="tela-obras" class="tela ativa">
+        <div class="header-campo d-flex justify-content-between align-items-center">
+            <h5 class="m-0"><i class="bi bi-cone-striped me-2"></i>Minhas Obras</h5>
+            <small class="text-white-50">SondaSaaS v2</small>
+        </div>
+        <div class="container mt-3" id="lista-obras">
+            <div class="text-center py-5 text-muted">Carregando obras...</div>
+        </div>
+    </div>
+
+    <div id="tela-furos" class="tela">
+        <div class="header-campo d-flex align-items-center gap-3">
+            <button class="btn btn-sm btn-outline-light" onclick="voltar('tela-obras')"><i class="bi bi-arrow-left"></i></button>
+            <h5 class="m-0 text-truncate" id="titulo-obra">Obra...</h5>
+        </div>
+        <div class="container mt-3">
+            <button class="btn btn-sonda btn-grande btn-success mb-3" onclick="abrirNovoFuro()">
+                <i class="bi bi-plus-circle me-2"></i>INICIAR NOVO FURO
+            </button>
+            <div id="lista-furos"></div>
+        </div>
+    </div>
+
+    <div id="tela-amostras" class="tela">
+        <div class="header-campo d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-light" onclick="voltar('tela-furos')"><i class="bi bi-arrow-left"></i></button>
+                <span class="fw-bold" id="titulo-furo">SP-01</span>
+            </div>
+            <button class="btn btn-sm btn-light text-success fw-bold" onclick="salvarAmostra()">SALVAR</button>
+        </div>
+        
+        <div class="container-fluid p-0">
+            <div class="bg-white p-3 shadow-sm mb-2">
+                <div class="row g-2">
+                    <div class="col-4">
+                        <label class="small text-muted">Prof. (m)</label>
+                        <input type="number" id="inp_prof" class="form-control fw-bold" value="1.0">
+                    </div>
+                    <div class="col-8">
+                        <label class="small text-muted">Tipo de Solo</label>
+                        <input type="text" id="inp_solo" class="form-control" placeholder="Ex: Argila Siltosa...">
+                    </div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-4"><input type="number" id="inp_g1" class="form-control text-center border-success" placeholder="1º 15"></div>
+                    <div class="col-4"><input type="number" id="inp_g2" class="form-control text-center border-success" placeholder="2º 15"></div>
+                    <div class="col-4"><input type="number" id="inp_g3" class="form-control text-center border-success" placeholder="3º 15"></div>
+                </div>
+                <button class="btn btn-success w-100 mt-2 py-2" onclick="adicionarLinha()">
+                    <i class="bi bi-plus-lg"></i> ADICIONAR METRO
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-golpes table-bordered mb-5" style="background: white;">
+                    <thead class="table-light text-center small">
+                        <tr>
+                            <th style="width: 50px;">Prof</th>
+                            <th style="width: 40px;">1º</th>
+                            <th style="width: 40px;">2º</th>
+                            <th style="width: 40px;">3º</th>
+                            <th>Solo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-amostras">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let obraAtual = null;
+        let furoAtual = null;
+
+        // 1. CARREGAR OBRAS
+        function carregarObras() {
+            fetch('/api/propostas')
+                .then(res => res.json())
+                .then(data => {
+                    const div = document.getElementById('lista-obras');
+                    div.innerHTML = '';
+                    data.forEach(obra => {
+                        div.innerHTML += `
+                            <div class="card shadow-sm card-obra" onclick="abrirObra(${obra.id}, '${obra.cliente}')">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-dark mb-1">${obra.cliente}</h6>
+                                    <small class="text-muted"><i class="bi bi-geo-alt me-1"></i>${obra.endereco}</small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                });
+        }
+
+        // 2. ABRIR OBRA E LISTAR FUROS
+        function abrirObra(id, nome) {
+            obraAtual = id;
+            document.getElementById('titulo-obra').innerText = nome;
+            mostrarTela('tela-furos');
+            carregarFuros(id);
+        }
+
+        function carregarFuros(id) {
+            fetch(`/api/boletim/furos/${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    const div = document.getElementById('lista-furos');
+                    div.innerHTML = '';
+                    data.forEach(f => {
+                        div.innerHTML += `
+                            <div class="card mb-2 shadow-sm" onclick="abrirAmostras(${f.id}, '${f.nome_furo}')">
+                                <div class="card-body py-3 d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold fs-5">${f.nome_furo}</span>
+                                    <span class="badge bg-secondary">${f.data_inicio ? new Date(f.data_inicio).toLocaleDateString('pt-BR') : '-'}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                });
+        }
+
+        // 3. CRIAR NOVO FURO
+        function abrirNovoFuro() {
+            const nome = prompt("Nome do Furo (Ex: SP-01):", "SP-");
+            if (!nome) return;
+            
+            const sondador = prompt("Nome do Sondador:", "Jandilson");
+            
+            fetch('/api/boletim/furos', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    proposta_id: obraAtual,
+                    nome_furo: nome,
+                    sondador: sondador,
+                    data_inicio: new Date().toISOString(),
+                    nivel_agua_inicial: 0
+                })
+            }).then(res => res.json()).then(data => {
+                abrirAmostras(data.id, nome);
+            });
+        }
+
+        // 4. ABRIR TELA DE DIGITAÇÃO (AMOSTRAS)
+        function abrirAmostras(id, nome) {
+            furoAtual = id;
+            document.getElementById('titulo-furo').innerText = nome;
+            mostrarTela('tela-amostras');
+            carregarTabelaAmostras(id);
+        }
+
+        function carregarTabelaAmostras(id) {
+            fetch(`/api/boletim/amostras/${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('tbody-amostras');
+                    tbody.innerHTML = '';
+                    
+                    let ultimaProf = 0;
+                    
+                    data.forEach(a => {
+                        adicionarLinhaNaTabela(a.profundidade_ini, a.golpe_1, a.golpe_2, a.golpe_3, a.tipo_solo);
+                        ultimaProf = a.profundidade_ini;
+                    });
+                    
+                    // Prepara o próximo metro automaticamente
+                    document.getElementById('inp_prof').value = parseFloat(ultimaProf) + 1;
+                    document.getElementById('inp_g1').value = '';
+                    document.getElementById('inp_g2').value = '';
+                    document.getElementById('inp_g3').value = '';
+                    // Mantém o solo anterior para agilizar (geralmente repete)
+                });
+        }
+
+        // 5. ADICIONAR AMOSTRA (SAVE)
+        function adicionarLinha() {
+            const prof = document.getElementById('inp_prof').value;
+            const g1 = document.getElementById('inp_g1').value;
+            const g2 = document.getElementById('inp_g2').value;
+            const g3 = document.getElementById('inp_g3').value;
+            const solo = document.getElementById('inp_solo').value;
+
+            if(!g1 || !g2 || !g3) { alert("Preencha os golpes!"); return; }
+
+            // Salva no Banco
+            fetch('/api/boletim/amostras', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    furo_id: furoAtual,
+                    profundidade_ini: prof,
+                    profundidade_fim: parseFloat(prof) + 0.45, // Padrão SPT
+                    golpe_1: g1, golpe_2: g2, golpe_3: g3,
+                    tipo_solo: solo, cor_solo: 'A verificar'
+                })
+            }).then(res => {
+                if(res.ok) {
+                    adicionarLinhaNaTabela(prof, g1, g2, g3, solo);
+                    // Prepara próximo
+                    document.getElementById('inp_prof').value = parseFloat(prof) + 1;
+                    document.getElementById('inp_g1').value = '';
+                    document.getElementById('inp_g2').value = '';
+                    document.getElementById('inp_g3').value = '';
+                    document.getElementById('inp_g1').focus();
+                }
+            });
+        }
+
+        function adicionarLinhaNaTabela(prof, g1, g2, g3, solo) {
+            const tbody = document.getElementById('tbody-amostras');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold text-center bg-light">${prof}m</td>
+                <td class="text-center">${g1}</td>
+                <td class="text-center">${g2}</td>
+                <td class="text-center">${g3}</td>
+                <td class="input-solo text-muted small">${solo}</td>
+            `;
+            // Adiciona no TOPO para ver o último sempre
+            tbody.insertBefore(tr, tbody.firstChild);
+        }
+
+        // UTILITÁRIOS
+        function mostrarTela(id) {
+            document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
+            document.getElementById(id).classList.add('ativa');
+        }
+
+        function voltar(idDestino) {
+            mostrarTela(idDestino);
+            if(idDestino === 'tela-obras') carregarObras();
+        }
+
+        // Iniciar
+        carregarObras();
+    </script>
+</body>
+</html>
