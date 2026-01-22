@@ -24,7 +24,7 @@
             <a href="/admin" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-left"></i> Voltar</a>
             <h5 class="m-0 fw-bold" id="titulo-obra">Carregando Obra...</h5>
         </div>
-        <button class="btn btn-success btn-sm fw-bold disabled" id="btn-gerar-relatorio">
+        <button class="btn btn-success btn-sm fw-bold disabled" id="btn-gerar-relatorio" onclick="gerarRelatorioPDF()">
             <i class="bi bi-file-earmark-pdf me-2"></i>GERAR RELATÓRIO FINAL
         </button>
     </div>
@@ -38,105 +38,98 @@
     </div>
 
     <script>
-        // Pega o ID da obra da URL (ex: /engenharia?id=12)
         const params = new URLSearchParams(window.location.search);
-        const idObra = params.get('id');
+        const propId = params.get('id');
+        let dadosCompletos = null;
 
-        if(idObra) {
-            carregarDadosEngenharia(idObra);
-        } else {
-            alert('ID da obra não encontrado.');
-            window.location.href = '/admin';
-        }
+        if(!propId) { alert('ID não fornecido'); window.location.href='/admin'; }
 
-        function carregarDadosEngenharia(id) {
-            fetch(`/api/engenharia/${id}`)
-                .then(res => res.json())
-                .then(data => {
-                    const { proposta, furos } = data;
-                    
-                    document.getElementById('titulo-obra').innerText = `${proposta.cliente} - ${proposta.endereco}`;
-                    const container = document.getElementById('container-furos');
-                    container.innerHTML = '';
+        // 1. CARREGAR DADOS COMPLETOS
+        fetch(`/api/engenharia/${propId}`)
+            .then(res => {
+                if(res.status === 403) window.location.href = '/login';
+                return res.json();
+            })
+            .then(data => {
+                dadosCompletos = data;
+                renderizarEngenharia(data);
+            })
+            .catch(err => console.error(err));
 
-                    if(furos.length === 0) {
-                        container.innerHTML = '<div class="alert alert-warning">Nenhum furo iniciado nesta obra ainda.</div>';
-                        return;
-                    }
+        // 2. RENDERIZAR TELA
+        function renderizarEngenharia(d) {
+            document.getElementById('titulo-obra').innerText = `${d.proposta.cliente} - ${d.proposta.endereco}`;
+            
+            // Habilita o botão de relatório
+            const btn = document.getElementById('btn-gerar-relatorio');
+            btn.classList.remove('disabled');
+            
+            const container = document.getElementById('container-furos');
+            container.innerHTML = '';
 
-                    furos.forEach(f => {
-                        let htmlAmostras = '';
-                        f.amostras.forEach(a => {
-                            // Cálculo do NSPT (Soma dos 2 últimos)
-                            const nspt = (a.golpe_2 || 0) + (a.golpe_3 || 0);
-                            htmlAmostras += `
-                                <tr>
-                                    <td class="text-center fw-bold bg-light">${parseFloat(a.profundidade_ini).toFixed(1)}m</td>
-                                    <td class="text-center text-muted small">${a.golpe_1}</td>
-                                    <td class="text-center fw-bold">${a.golpe_2}</td>
-                                    <td class="text-center fw-bold">${a.golpe_3}</td>
-                                    <td class="text-center bg-success text-white fw-bold">${nspt}</td>
-                                    <td>${a.tipo_solo || '-'}</td>
-                                </tr>
-                            `;
-                        });
+            if(d.furos.length === 0) {
+                container.innerHTML = '<div class="alert alert-warning text-center">Nenhum furo iniciado nesta obra ainda.</div>';
+                return;
+            }
 
-                        let htmlFotos = '';
-                        if(f.fotos && f.fotos.length > 0) {
-                            htmlFotos = '<div class="row g-2 mt-3 pt-3 border-top">';
-                            f.fotos.forEach(foto => {
-                                htmlFotos += `
-                                    <div class="col-4 col-md-3">
-                                        <a href="/api/foto-full/${foto.id}" target="_blank">
-                                            <img src="/api/foto-full/${foto.id}" class="img-thumb shadow-sm">
-                                        </a>
-                                        <small class="d-block text-muted text-truncate mt-1" style="font-size:0.75rem">${foto.legenda}</small>
-                                    </div>
-                                `;
-                            });
-                            htmlFotos += '</div>';
-                        } else {
-                            htmlFotos = '<div class="text-muted small mt-3 fst-italic">Sem fotos.</div>';
-                        }
+            d.furos.forEach(furo => {
+                let htmlAmostras = '';
+                furo.amostras.forEach(am => {
+                    const nspt = (am.golpe_2 || 0) + (am.golpe_3 || 0);
+                    htmlAmostras += `
+                        <tr>
+                            <td class="fw-bold text-success">${parseFloat(am.profundidade_ini).toFixed(2)}m</td>
+                            <td>${am.golpe_1} - ${am.golpe_2} - ${am.golpe_3}</td>
+                            <td class="fw-bold bg-light text-center">${nspt}</td>
+                            <td class="text-muted small text-truncate" style="max-width: 150px;">${am.tipo_solo || '-'}</td>
+                        </tr>
+                    `;
+                });
 
-                        // Detalhes técnicos do cabeçalho
-                        const dataIni = f.data_inicio ? new Date(f.data_inicio).toLocaleDateString('pt-BR') : '-';
-                        const na = f.nivel_agua_inicial ? `${f.nivel_agua_inicial}m` : 'Seco';
+                let htmlFotos = '';
+                if(furo.fotos && furo.fotos.length > 0) {
+                    htmlFotos = `<div class="row g-2 mt-3 bg-white p-2 rounded border">`;
+                    furo.fotos.forEach(foto => {
+                        htmlFotos += `
+                            <div class="col-4">
+                                <a href="/api/foto-full/${foto.id}" target="_blank">
+                                    <img src="/api/foto-full/${foto.id}" class="img-thumb shadow-sm" title="${foto.legenda}">
+                                </a>
+                            </div>`;
+                    });
+                    htmlFotos += `</div>`;
+                }
 
-                        const card = `
-                            <div class="col-lg-6 mb-4">
-                                <div class="card card-furo shadow-sm h-100">
-                                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                                        <h5 class="m-0 fw-bold text-dark">${f.nome_furo}</h5>
-                                        <div class="badge bg-light text-dark border">NA: ${na} | Data: ${dataIni}</div>
-                                    </div>
-                                    <div class="card-body p-0">
-                                        <div class="table-responsive">
-                                            <table class="table table-eng table-hover mb-0">
-                                                <thead>
-                                                    <tr>
-                                                        <th class="text-center">Prof</th>
-                                                        <th class="text-center">1º</th>
-                                                        <th class="text-center">2º</th>
-                                                        <th class="text-center">3º</th>
-                                                        <th class="text-center">NSPT</th>
-                                                        <th>Classificação Tátil-Visual</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>${htmlAmostras}</tbody>
-                                            </table>
-                                        </div>
-                                        <div class="p-3 bg-white">
-                                            <h6 class="small fw-bold text-secondary">REGISTRO FOTOGRÁFICO</h6>
-                                            ${htmlFotos}
-                                        </div>
-                                    </div>
+                const cardHTML = `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card card-furo shadow-sm h-100">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                                <span class="fw-bold fs-5"><i class="bi bi-geo-alt-fill text-success me-2"></i>${furo.nome_furo}</span>
+                                <span class="badge bg-secondary">${furo.amostras.length}m perfurados</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table table-eng table-hover mb-0">
+                                        <thead><tr><th>Prof</th><th>Golpes</th><th>NSPT</th><th>Solo</th></tr></thead>
+                                        <tbody>${htmlAmostras}</tbody>
+                                    </table>
+                                </div>
+                                <div class="p-3">
+                                    ${htmlFotos}
                                 </div>
                             </div>
-                        `;
-                        container.innerHTML += card;
-                    });
-                });
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHTML;
+            });
+        }
+
+        // 3. AÇÃO DO BOTÃO PDF
+        function gerarRelatorioPDF() {
+            if(confirm('Deseja gerar o Relatório Técnico Final (PDF) com gráficos e fotos?')) {
+                window.open(`/gerar-relatorio-tecnico/${propId}`, '_blank');
+            }
         }
     </script>
 </body>
