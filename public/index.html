@@ -2,115 +2,182 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SondaSaaS - Gerador de Propostas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SondaSaaS - Orçamento</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
         :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .header-sonda { background-color: white; border-bottom: 4px solid var(--sonda-green); padding: 20px 0; margin-bottom: 30px; }
-        .btn-sonda { background-color: var(--sonda-green); color: white; font-weight: bold; border: none; padding: 12px 30px; }
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding-bottom: 0; }
+        
+        .header-sonda { background-color: white; border-bottom: 4px solid var(--sonda-green); padding: 15px 0; margin-bottom: 20px; }
+        .btn-sonda { background-color: var(--sonda-green); color: white; font-weight: bold; border: none; padding: 12px 30px; width: 100%; }
         .btn-sonda:hover { background-color: #567a10; color: white; }
-        .total-card { background: var(--sonda-dark); color: white; position: sticky; top: 20px; border-radius: 10px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        
+        /* ESTILO DO CARD DE TOTAL (O Segredo do Mobile) */
+        .total-card {
+            background: var(--sonda-dark);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
         .total-highlight { color: #a3d646; font-size: 1.8rem; font-weight: bold; }
+        
         .bg-assistant { background-color: #e8f5e9; border-left: 5px solid var(--sonda-green); }
         .assistant-info { font-size: 0.85rem; background: white; padding: 10px; border-radius: 5px; border: 1px solid #c3e6cb; }
+
+        /* --- MEDIA QUERY: COMPORTAMENTO MOBILE --- */
+        @media (min-width: 992px) {
+            /* No PC: Sticky no topo */
+            .total-card {
+                position: sticky;
+                top: 20px;
+            }
+        }
+
+        @media (max-width: 991px) {
+            /* No Celular: Barra Fixa embaixo (Estilo App) */
+            .total-card {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                border-radius: 20px 20px 0 0; /* Arredonda só em cima */
+                z-index: 1000;
+                margin: 0 !important;
+                padding: 15px 20px;
+                box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+            }
+            /* Esconde detalhes menos importantes no celular para economizar espaço */
+            .hide-mobile { display: none; }
+            
+            /* Ajuste do botão gerar */
+            .btn-gerar-mobile {
+                margin-top: 10px;
+                width: 100%;
+            }
+            
+            /* Espaço extra no fim da página para o conteúdo não ficar escondido atrás da barra */
+            body { padding-bottom: 240px; }
+            
+            .total-highlight { font-size: 1.5rem; }
+        }
     </style>
 </head>
 <body>
 
     <header class="header-sonda shadow-sm">
         <div class="container d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-3">
-                <div style="width:50px; height:50px; background:#f0f0f0; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--sonda-green);">
-                    <i class="bi bi-layers-half fs-4"></i>
+            <div class="d-flex align-items-center gap-2">
+                <div style="width:40px; height:40px; background:#f0f0f0; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--sonda-green);">
+                    <i class="bi bi-layers-half fs-5"></i>
                 </div>
                 <div>
-                    <h4 class="m-0 fw-bold" style="color: var(--sonda-dark);">SondaSaaS</h4>
-                    <small class="text-muted">Gerador Inteligente v1.0</small>
+                    <h5 class="m-0 fw-bold" style="color: var(--sonda-dark);">SondaSaaS</h5>
+                    <small class="text-muted" style="font-size: 0.75rem;">Gerador v1.1 Mobile</small>
                 </div>
             </div>
-            <a href="/login" class="btn btn-outline-secondary btn-sm"><i class="bi bi-lock"></i> Área Admin</a>
+            <a href="/login" class="btn btn-outline-secondary btn-sm"><i class="bi bi-lock"></i> Admin</a>
         </div>
     </header>
 
-    <div class="container pb-5">
+    <div class="container">
         <div class="row">
             <div class="col-lg-8">
-                <div class="card shadow border-0">
+                <div class="card shadow border-0 mb-3">
                     <div class="card-header bg-white py-3">
-                        <h5 class="m-0 fw-bold" style="color: var(--sonda-green);"><i class="bi bi-file-earmark-text me-2"></i>Dados da Proposta</h5>
+                        <h6 class="m-0 fw-bold" style="color: var(--sonda-green);"><i class="bi bi-person-lines-fill me-2"></i>Cliente</h6>
                     </div>
-                    <div class="card-body p-4">
+                    <div class="card-body p-3 p-md-4">
                         <form id="propostaForm" action="/gerar-proposta" method="POST">
                             
                             <input type="hidden" name="criterio_tecnico" id="input_criterio_backend" value="norma">
                             <input type="hidden" name="detalhe_criterio" id="input_detalhe_backend" value="">
 
-                            <h6 class="text-muted border-bottom pb-2 mb-3">Informações do Cliente</h6>
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-6"><label class="form-label">Nome do Cliente</label><input type="text" name="cliente" class="form-control bg-light" required></div>
-                                <div class="col-md-6"><label class="form-label">Endereço da Obra</label><input type="text" name="endereco" class="form-control bg-light" required></div>
-                                <div class="col-md-6"><label class="form-label">Telefone</label><input type="text" name="telefone" class="form-control bg-light"></div>
-                                <div class="col-md-6"><label class="form-label">E-mail</label><input type="email" name="email" class="form-control bg-light"></div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-12"><label class="form-label small fw-bold">Nome do Cliente</label><input type="text" name="cliente" class="form-control bg-light" required></div>
+                                <div class="col-12"><label class="form-label small fw-bold">Endereço da Obra</label><input type="text" name="endereco" class="form-control bg-light" required></div>
+                                <div class="col-6"><label class="form-label small fw-bold">Telefone</label><input type="tel" name="telefone" class="form-control bg-light"></div>
+                                <div class="col-6"><label class="form-label small fw-bold">E-mail</label><input type="email" name="email" class="form-control bg-light"></div>
                             </div>
 
-                            <div class="p-3 mb-4 rounded bg-assistant">
-                                <h6 class="fw-bold text-success mb-3"><i class="bi bi-robot me-1"></i>Assistente de Sondagem (NBR 6484:2020)</h6>
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold small">Área do Terreno (m²)</label>
-                                        <input type="number" id="area_terreno" class="form-control border-success" placeholder="Ex: 250">
+                            <div class="p-3 mb-3 rounded bg-assistant">
+                                <h6 class="fw-bold text-success mb-2" style="font-size: 0.9rem;"><i class="bi bi-robot me-1"></i>Assistente NBR 6484</h6>
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <label class="form-label small">Área (m²)</label>
+                                        <input type="number" id="area_terreno" class="form-control border-success text-center fw-bold" placeholder="0">
                                     </div>
-                                    <div class="col-md-8">
-                                        <label class="form-label fw-bold small">Critério de Paralisação</label>
-                                        <select id="criterio" class="form-select border-success">
-                                            <option value="norma">Critério de Norma (NBR 6484:2020)</option>
-                                            <option value="cota">Furo por Cota (Profundidade Fixa)</option>
+                                    <div class="col-8">
+                                        <label class="form-label small">Critério</label>
+                                        <select id="criterio" class="form-select border-success select-sm" style="font-size: 0.9rem;">
+                                            <option value="norma">Norma (Padrão)</option>
+                                            <option value="cota">Cota Fixa</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-12" id="divCota" style="display: none;">
-                                        <label class="form-label small text-primary">Profundidade Fixa (m/furo)</label>
+                                    <div class="col-12" id="divCota" style="display: none;">
+                                        <label class="form-label small text-primary">Profundidade (m/furo)</label>
                                         <input type="number" id="profundidade_cota" class="form-control" value="15">
                                     </div>
-                                    <div class="col-12"><div class="assistant-info text-muted" id="textoExplicativo"><i class="bi bi-info-circle me-1"></i> Digite a área para calcular os furos.</div></div>
+                                    <div class="col-12"><div class="assistant-info text-muted small fst-italic" id="textoExplicativo">Digite a área para calcular.</div></div>
                                 </div>
                             </div>
 
-                            <h6 class="text-muted border-bottom pb-2 mb-3">Definição do Serviço</h6>
-                            <div class="row g-3 mb-3">
-                                <div class="col-md-4"><label class="form-label fw-bold">Qtd. Furos</label><input type="number" id="furos" name="furos" class="form-control calc-input bg-white fw-bold" required value="0"></div>
-                                <div class="col-md-4"><label class="form-label fw-bold">Metragem Total (m)</label><input type="number" id="metragem" name="metragem" class="form-control calc-input fw-bold" required step="0.1"></div>
-                                <div class="col-md-4"><label class="form-label">Valor/Metro (R$)</label><input type="number" id="valor_metro" name="valor_metro" class="form-control calc-input" required step="0.01" value="55.00"></div>
+                            <h6 class="text-muted border-bottom pb-2 mb-3 small">Definição Técnica</h6>
+                            <div class="row g-2 mb-3">
+                                <div class="col-4"><label class="form-label small fw-bold">Furos</label><input type="number" id="furos" name="furos" class="form-control calc-input fw-bold" required value="0"></div>
+                                <div class="col-4"><label class="form-label small fw-bold">Total (m)</label><input type="number" id="metragem" name="metragem" class="form-control calc-input fw-bold" required step="0.1"></div>
+                                <div class="col-4"><label class="form-label small fw-bold">R$/Metro</label><input type="number" id="valor_metro" name="valor_metro" class="form-control calc-input" required step="0.01" value="55.00"></div>
                             </div>
 
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-4"><label class="form-label">Taxa ART (R$)</label><input type="number" id="art" name="art" class="form-control calc-input" value="100.00"></div>
-                                <div class="col-md-4"><label class="form-label">Mobilização (R$)</label><input type="number" id="mobilizacao" name="mobilizacao" class="form-control calc-input" value="150.00"></div>
-                                <div class="col-md-4"><label class="form-label text-danger">Desconto (R$)</label><input type="number" id="desconto" name="desconto" class="form-control calc-input text-danger" value="0"></div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-4"><label class="form-label small">ART (R$)</label><input type="number" id="art" name="art" class="form-control calc-input" value="100.00"></div>
+                                <div class="col-4"><label class="form-label small">Mob. (R$)</label><input type="number" id="mobilizacao" name="mobilizacao" class="form-control calc-input" value="150.00"></div>
+                                <div class="col-4"><label class="form-label small text-danger">Desc. (R$)</label><input type="number" id="desconto" name="desconto" class="form-control calc-input text-danger" value="0"></div>
                             </div>
-
-                            <div class="d-grid"><button type="submit" class="btn btn-sonda btn-lg shadow-sm"><i class="bi bi-check-circle-fill me-2"></i>GERAR PROPOSTA (PDF)</button></div>
+                            
+                            <div class="d-none d-lg-block d-grid mt-4">
+                                <button type="submit" class="btn btn-sonda btn-lg shadow-sm">GERAR PROPOSTA (PDF)</button>
+                            </div>
                         </form>
                     </div>
                 </div>
             </div>
 
-            <div class="col-lg-4 mt-4 mt-lg-0">
+            <div class="col-lg-4">
                 <div class="total-card">
-                    <h5 class="border-bottom pb-2 mb-3"><i class="bi bi-calculator me-2"></i>Resumo</h5>
-                    <div class="d-flex justify-content-between mb-2"><span>Sondagem:</span><span id="previewSondagem">R$ 0,00</span></div>
-                    <div class="d-flex justify-content-between mb-2"><span>Taxas:</span><span id="previewTaxas">R$ 0,00</span></div>
-                    <div class="d-flex justify-content-between mb-3 text-danger"><span>Descontos:</span><span id="previewDesconto">- R$ 0,00</span></div>
-                    <div class="border-top pt-3"><small class="d-block text-white-50">VALOR TOTAL</small><div id="previewTotal" class="total-highlight">R$ 0,00</div></div>
+                    <h5 class="border-bottom pb-2 mb-3 d-none d-lg-block"><i class="bi bi-calculator me-2"></i>Resumo</h5>
+                    
+                    <div class="hide-mobile">
+                        <div class="d-flex justify-content-between mb-1 small"><span>Sondagem:</span><span id="previewSondagem">R$ 0,00</span></div>
+                        <div class="d-flex justify-content-between mb-1 small"><span>Taxas:</span><span id="previewTaxas">R$ 0,00</span></div>
+                        <div class="d-flex justify-content-between mb-3 small text-danger"><span>Descontos:</span><span id="previewDesconto">- R$ 0,00</span></div>
+                        <hr class="border-secondary">
+                    </div>
+
+                    <div class="d-flex flex-column flex-lg-column align-items-center align-items-lg-start">
+                        <div class="d-flex justify-content-between w-100 align-items-center">
+                            <span class="small text-white-50 d-lg-block">TOTAL FINAL</span>
+                            <div id="previewTotal" class="total-highlight">R$ 0,00</div>
+                        </div>
+                        
+                        <div class="d-lg-none w-100 mt-2">
+                             <button type="submit" form="propostaForm" class="btn btn-sonda shadow-sm btn-gerar-mobile">
+                                <i class="bi bi-file-earmark-pdf me-2"></i>GERAR PDF
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="mt-3 text-center small text-muted"><i class="bi bi-shield-check"></i> Parâmetros conforme <strong>NBR 6484:2020</strong>.</div>
+                
+                <div class="mt-3 text-center small text-muted d-none d-lg-block"><i class="bi bi-shield-check"></i> NBR 6484:2020</div>
             </div>
         </div>
     </div>
 
     <script>
+        // MESMA LÓGICA DE ANTES, SÓ O HTML MUDOU
         const inputArea = document.getElementById('area_terreno');
         const selectCriterio = document.getElementById('criterio');
         const divCota = document.getElementById('divCota');
@@ -118,19 +185,15 @@
         const textoExp = document.getElementById('textoExplicativo');
         const inputFuros = document.getElementById('furos');
         const inputMetragem = document.getElementById('metragem');
-        
-        // HIDDEN INPUTS (Para enviar ao Backend)
         const hiddenCriterio = document.getElementById('input_criterio_backend');
         const hiddenDetalhe = document.getElementById('input_detalhe_backend');
 
-        const TXT_NORMA = `<strong>Critério de Norma:</strong> Perfuração até atingir critério técnico de paralisação (NBR 6484:2020, item 5.2.4).`;
-        const TXT_COTA = `<strong>Furo por Cota:</strong> Profundidade fixa solicitada pelo engenheiro calculista (ex: 15m).`;
+        const TXT_NORMA = `<strong>Norma:</strong> Até critério técnico (NBR 6484:2020).`;
+        const TXT_COTA = `<strong>Cota:</strong> Profundidade fixa (ex: 15m).`;
 
         function atualizarAssistente() {
             const area = parseFloat(inputArea.value) || 0;
             const modo = selectCriterio.value;
-
-            // 1. Atualiza Hidden Input
             hiddenCriterio.value = modo;
 
             let qtdFuros = 0;
@@ -142,13 +205,13 @@
             if (modo === 'norma') {
                 divCota.style.display = 'none';
                 textoExp.innerHTML = TXT_NORMA;
-                hiddenDetalhe.value = "Conforme NBR 6484:2020"; // Info para o PDF
+                hiddenDetalhe.value = "Conforme NBR 6484:2020"; 
                 if(qtdFuros > 0 && inputMetragem.value == 0) inputMetragem.value = qtdFuros * 15; 
             } else {
                 divCota.style.display = 'block';
                 textoExp.innerHTML = TXT_COTA;
                 const prof = parseFloat(inputCota.value) || 0;
-                hiddenDetalhe.value = `Furo por Cota Fixa: ${prof}m`; // Info para o PDF
+                hiddenDetalhe.value = `Furo por Cota Fixa: ${prof}m`; 
                 if(qtdFuros > 0) inputMetragem.value = qtdFuros * prof;
             }
             calcularTotais();
