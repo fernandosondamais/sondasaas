@@ -36,7 +36,7 @@ app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'log
 app.get('/admin', (req, res) => adminLogado ? res.sendFile(path.join(__dirname, 'public', 'admin.html')) : res.redirect('/login'));
 app.get('/logout', (req, res) => { adminLogado = false; res.redirect('/login'); });
 
-// NOVA ROTA: Acesso ao Boletim de Campo (Sem senha por enquanto para facilitar teste)
+// NOVA ROTA: Acesso ao Boletim de Campo (Vamos criar o HTML dela no próximo passo)
 app.get('/boletim', (req, res) => res.sendFile(path.join(__dirname, 'public', 'boletim.html')));
 
 // --- ROTAS DA API (COMERCIAL) ---
@@ -68,6 +68,7 @@ app.post('/gerar-proposta', async (req, res) => {
     const v_art = parseFloat(d.art) || 0;
     const v_mobi = parseFloat(d.mobilizacao) || 0;
     const v_desc = parseFloat(d.desconto) || 0;
+    
     const subtotal_sondagem = v_metragem * v_metro;
     const valor_total = subtotal_sondagem + v_art + v_mobi - v_desc;
     
@@ -79,7 +80,9 @@ app.post('/gerar-proposta', async (req, res) => {
         const sql = `INSERT INTO propostas 
         (cliente, telefone, email, endereco, furos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total, criterio, detalhe_criterio) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, data_criacao`;
+        
         const values = [d.cliente, d.telefone, d.email, d.endereco, v_furos, v_metragem, v_art, v_mobi, v_desc, valor_total, criterio, detalhe];
+        
         const dbRes = await pool.query(sql, values);
         
         const dadosPDF = {
@@ -100,25 +103,31 @@ app.get('/reemitir-pdf/:id', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM propostas WHERE id = $1', [req.params.id]);
         if (result.rows.length === 0) return res.status(404).send('Não encontrado');
+        
         const row = result.rows[0];
-        const total = parseFloat(row.valor_total); const art = parseFloat(row.valor_art);
-        const mobi = parseFloat(row.valor_mobilizacao); const desc = parseFloat(row.valor_desconto);
+        const total = parseFloat(row.valor_total); 
+        const art = parseFloat(row.valor_art);
+        const mobi = parseFloat(row.valor_mobilizacao); 
+        const desc = parseFloat(row.valor_desconto);
         const metragem = parseFloat(row.metragem_total);
         const subtotal = total - art - mobi + desc;
         const v_metro = metragem > 0 ? subtotal / metragem : 0;
         
         const dadosPDF = {
-            id: row.id, data: new Date(row.data_criacao).toLocaleDateString('pt-BR'),
+            id: row.id, 
+            data: new Date(row.data_criacao).toLocaleDateString('pt-BR'),
             cliente: row.cliente, telefone: row.telefone, email: row.email, endereco: row.endereco, 
             furos: row.furos, metragem: metragem, valor_metro: v_metro, 
             subtotal_sondagem: subtotal, art: art, mobilizacao: mobi, desconto: desc, total: total,
-            criterio: row.criterio || 'norma', detalhe_criterio: row.detalhe_criterio || ''
+            criterio: row.criterio || 'norma',
+            detalhe_criterio: row.detalhe_criterio || ''
         };
         gerarPDFDinamico(res, dadosPDF);
     } catch (err) { res.status(500).send('Erro'); }
 });
 
 // --- ROTAS DA API (TÉCNICO / BOLETIM DE CAMPO) ---
+// Estas rotas permitem que o celular do sondador salve e leia dados
 
 // 1. Listar Furos de uma Obra (Para o sondador ver o que já fez)
 app.get('/api/boletim/furos/:obraId', async (req, res) => {
@@ -176,18 +185,21 @@ function gerarPDFDinamico(res, d) {
     // HEADER
     const logoPath = path.join(__dirname, 'public', 'logo.png');
     if (fs.existsSync(logoPath)) { try { doc.image(logoPath, 30, 15, { width: 70 }); } catch (e) {} }
+    
     let headerTextY = 110; 
     doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.ACCENT).text('Sondamais Engenharia', 30, headerTextY);
     doc.font('Helvetica').fontSize(9).fillColor(COLORS.PRIMARY)
         .text('R. Luís Spiandorelli Neto, 60', 30, headerTextY + 15)
         .text('Valinhos, São Paulo, 13271-570', 30, headerTextY + 27)
         .text('(19) 99800-2260 | contato@sondamais.com.br', 30, headerTextY + 39);
+
     const boxX = 300; const boxY = 40;
     doc.font('Helvetica-Bold').fontSize(14).text('Orçamento', boxX, boxY);
     doc.font('Helvetica-Bold').fontSize(9).text('Data', boxX, boxY + 25); doc.font('Helvetica').text(d.data, boxX, boxY + 37);
     doc.font('Helvetica-Bold').text('Número da Proposta', boxX + 150, boxY + 25); doc.font('Helvetica').text(`${d.id}/2026`, boxX + 150, boxY + 37);
     doc.font('Helvetica-Bold').text('Pagamento', boxX, boxY + 55); doc.font('Helvetica').text('50% SINAL + 50% ENTREGA DO LAUDO', boxX, boxY + 67);
     doc.font('Helvetica-Bold').text('Elaborado por:', boxX, boxY + 95); doc.font('Helvetica').text('Eng. Fabiano Rielli', boxX, boxY + 107);
+    
     const clienteY = boxY + 125;
     doc.font('Helvetica-Bold').text('Solicitante:', boxX, clienteY); doc.font('Helvetica').text(d.cliente, boxX + 55, clienteY);
     doc.text(`Tel: ${d.telefone || '-'} | Email: ${d.email || '-'}`, boxX, clienteY + 14, {width: 260});
@@ -202,6 +214,7 @@ function gerarPDFDinamico(res, d) {
         return posY + 25; 
     }
     y = drawTableHeader(y); 
+
     function drawRow(desc, subtext, qtd, unit, total) {
         const rowHeight = subtext ? 45 : 20;
         if (y + rowHeight > 750) { doc.addPage(); y = 50; y = drawTableHeader(y); }
@@ -211,8 +224,13 @@ function gerarPDFDinamico(res, d) {
         doc.text(qtd, colQtd, y); doc.text(unit, colUnit, y); doc.text(total, colTotal, y);
         y += rowHeight; doc.moveTo(30, y).lineTo(565, y).strokeColor('#eeeeee').lineWidth(1).stroke(); y += 10; 
     }
+
+    // LÓGICA DE TEXTO DA TABELA
     let textoSondagem = '(furos de até 20m ou NBR 6484:2020). Cobrado o metro excedente.';
-    if (d.criterio === 'cota') { textoSondagem = `(Execução conforme solicitação: ${d.detalhe_criterio}). Cobrança por metro perfurado.`; }
+    if (d.criterio === 'cota') {
+        textoSondagem = `(Execução conforme solicitação: ${d.detalhe_criterio}). Cobrança por metro perfurado.`;
+    }
+
     drawRow('Sondagem SPT', textoSondagem, d.furos, '', '');
     drawRow('*Metragem total (metros lineares)', null, d.metragem, fmtMoney(d.valor_metro), fmtMoney(d.subtotal_sondagem));
     drawRow('ART', null, '1', fmtMoney(d.art), fmtMoney(d.art));
@@ -225,12 +243,16 @@ function gerarPDFDinamico(res, d) {
     doc.fontSize(8).text('REV00', 30, doc.y + 12); 
     doc.font('Helvetica-Bold').fontSize(16).text(fmtMoney(d.total), 30, doc.y + 15);
 
-    // TEXTOS JURÍDICOS
+    // TEXTOS JURÍDICOS (DINÂMICOS)
     doc.moveDown(2); checkPageBreak(100); 
+
     if (d.criterio === 'cota') {
         doc.font('Helvetica-Bold').fontSize(9).text("CRITÉRIO DE PARALISAÇÃO: FURO POR COTA", {underline: true});
         doc.moveDown(0.5);
-        doc.font('Helvetica').fontSize(8).text("Conforme solicitação do contratante, os furos serão executados até a profundidade pré-estabelecida (Cota Fixa), independentemente do critério de norma NBR 6484. A interrupção ocorrerá antes da cota apenas em caso de impenetrável à percussão.", {width: 535, align: 'justify'});
+        doc.font('Helvetica').fontSize(8).text(
+            "Conforme solicitação do contratante, os furos serão executados até a profundidade pré-estabelecida (Cota Fixa), independentemente do critério de norma NBR 6484. A interrupção ocorrerá antes da cota apenas em caso de impenetrável à percussão.", 
+            {width: 535, align: 'justify'}
+        );
     } else {
         doc.font('Helvetica').fontSize(8);
         doc.text("Na ausência do fornecimento do critério de paralisação por parte da contratante ou seu preposto, o CRITÉRIO DE PARALIZAÇÃO DOS ENSAIOS SEGUE AS RECOMENDAÇÕES DA NBR 6484:2020, ITEM 5.2.4 OU 6.2.4.", {width: 535, align: 'justify'});
@@ -247,6 +269,8 @@ function gerarPDFDinamico(res, d) {
         doc.moveDown(0.2);
         doc.text("c) avanço até a profundidade com 6 m de resultados consecutivos N >= 35 golpes;", listOpts);
     }
+
+    // CRONOGRAMA
     doc.moveDown(2); if (checkPageBreak(120)) { doc.y = 50; }
     doc.font('Helvetica-Bold').fontSize(10).text('CRONOGRAMA', 30, doc.y);
     doc.moveDown(0.5);
@@ -259,10 +283,73 @@ function gerarPDFDinamico(res, d) {
     doc.end();
 }
 
-// --- INIT SQL (Mantido para garantir integridade) ---
-const sqlPropostas = `CREATE TABLE IF NOT EXISTS propostas (id SERIAL PRIMARY KEY, cliente VARCHAR(255), endereco TEXT, furos INTEGER, metragem_total NUMERIC, valor_art NUMERIC, valor_mobilizacao NUMERIC, valor_desconto NUMERIC, valor_total NUMERIC, data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP, telefone VARCHAR(50), email VARCHAR(255), criterio VARCHAR(50), detalhe_criterio VARCHAR(255));`;
-const sqlFuros = `CREATE TABLE IF NOT EXISTS furos (id SERIAL PRIMARY KEY, proposta_id INTEGER REFERENCES propostas(id) ON DELETE CASCADE, nome_furo VARCHAR(20), sondador VARCHAR(100), data_inicio DATE, data_termino DATE, cota NUMERIC, nivel_agua_inicial NUMERIC, nivel_agua_final NUMERIC, revestimento NUMERIC, coordenadas TEXT);`;
-const sqlAmostras = `CREATE TABLE IF NOT EXISTS amostras (id SERIAL PRIMARY KEY, furo_id INTEGER REFERENCES furos(id) ON DELETE CASCADE, profundidade_ini NUMERIC, profundidade_fim NUMERIC, golpe_1 INTEGER, golpe_2 INTEGER, golpe_3 INTEGER, tipo_solo TEXT, cor_solo TEXT, obs_solo TEXT);`;
+// --- INICIALIZAÇÃO DO SERVIDOR E BANCO DE DADOS ---
 
+// 1. Tabela PROPOSTAS (Módulo Comercial)
+const sqlPropostas = `
+    CREATE TABLE IF NOT EXISTS propostas (
+        id SERIAL PRIMARY KEY, 
+        cliente VARCHAR(255), 
+        endereco TEXT, 
+        furos INTEGER, 
+        metragem_total NUMERIC, 
+        valor_art NUMERIC, 
+        valor_mobilizacao NUMERIC, 
+        valor_desconto NUMERIC, 
+        valor_total NUMERIC, 
+        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        telefone VARCHAR(50),
+        email VARCHAR(255),
+        criterio VARCHAR(50),
+        detalhe_criterio VARCHAR(255)
+    );
+`;
+
+// 2. Tabela FUROS (Módulo Técnico - Boletim de Campo)
+// Baseado no caderno de campo: Sondador, Data, Cota, Coord, Nivel Agua, Revestimento
+const sqlFuros = `
+    CREATE TABLE IF NOT EXISTS furos (
+        id SERIAL PRIMARY KEY,
+        proposta_id INTEGER REFERENCES propostas(id) ON DELETE CASCADE,
+        nome_furo VARCHAR(20),  
+        sondador VARCHAR(100),
+        data_inicio DATE,
+        data_termino DATE,
+        cota NUMERIC,
+        nivel_agua_inicial NUMERIC, 
+        nivel_agua_final NUMERIC,
+        revestimento NUMERIC,
+        coordenadas TEXT
+    );
+`;
+
+// 3. Tabela AMOSTRAS (Módulo Técnico - Detalhes do Furo)
+// Baseado no caderno de campo: Profundidade, Golpes (1, 2, 3), Classificação do Solo
+const sqlAmostras = `
+    CREATE TABLE IF NOT EXISTS amostras (
+        id SERIAL PRIMARY KEY,
+        furo_id INTEGER REFERENCES furos(id) ON DELETE CASCADE,
+        profundidade_ini NUMERIC, 
+        profundidade_fim NUMERIC, 
+        golpe_1 INTEGER,          
+        golpe_2 INTEGER,          
+        golpe_3 INTEGER,          
+        tipo_solo TEXT,           
+        cor_solo TEXT,            
+        obs_solo TEXT             
+    );
+`;
+
+// Executa todas as criações em ordem e inicia o servidor
 const initSQL = sqlPropostas + sqlFuros + sqlAmostras;
-pool.query(initSQL).then(() => { console.log('>>> DB OK <<<'); app.listen(port, () => { console.log(`Rodando na porta ${port}`); }); }).catch(err => { console.error('ERRO DB:', err); });
+
+pool.query(initSQL)
+    .then(() => { 
+        console.log('>>> DB OK: Módulos Comercial e Técnico Carregados <<<'); 
+        app.listen(port, () => { 
+            console.log(`Rodando na porta ${port}`); 
+        }); 
+    })
+    .catch(err => { 
+        console.error('ERRO DB:', err); 
+    });
