@@ -238,23 +238,37 @@ function drawGridLines(doc, yStart, yEnd, col) {
     doc.restore();
 }
 
+// --- ROTA DE GERAÇÃO DE PROPOSTA (CORRIGIDA) ---
 app.post('/gerar-proposta', async (req, res) => {
     const d = req.body;
     try {
+        // CÁLCULO DO TOTAL NO BACKEND PARA GARANTIR INTEGRIDADE
+        const metragem = parseFloat(d.metragem) || 0;
+        const valorMetro = parseFloat(d.valor_metro) || 0;
+        const art = parseFloat(d.art) || 0;
+        const mob = parseFloat(d.mobilizacao) || 0;
+        const desc = parseFloat(d.desconto) || 0;
+        
+        const valorTotal = (metragem * valorMetro) + art + mob - desc;
+
         const sql = `INSERT INTO propostas (cliente, telefone, email, endereco, furos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`;
-        const v = [d.cliente, d.telefone, d.email, d.endereco, d.furos, d.metragem, d.art, d.mobilizacao, d.desconto, 0];
+        const v = [d.cliente, d.telefone, d.email, d.endereco, d.furos, d.metragem, d.art, d.mobilizacao, d.desconto, valorTotal];
+        
         const r = await pool.query(sql, v);
-        res.redirect('/admin');
-    } catch(e) { res.status(500).send('Erro'); }
+        res.redirect('/admin'); // Redireciona para a lista geral
+    } catch(e) { 
+        console.error(e);
+        res.status(500).send('Erro ao salvar proposta.'); 
+    }
 });
-app.get('/reemitir-pdf/:id', (req, res) => res.send('Em manutenção.'));
+
+app.get('/reemitir-pdf/:id', (req, res) => res.send('Em manutenção para a demo.'));
 
 const initSQL = `
 CREATE TABLE IF NOT EXISTS propostas (id SERIAL PRIMARY KEY, cliente VARCHAR(255), endereco TEXT, furos INTEGER, metragem_total NUMERIC, valor_art NUMERIC, valor_mobilizacao NUMERIC, valor_desconto NUMERIC, valor_total NUMERIC, data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP, telefone VARCHAR(50), email VARCHAR(255), criterio VARCHAR(50), detalhe_criterio VARCHAR(255));
 CREATE TABLE IF NOT EXISTS furos (id SERIAL PRIMARY KEY, proposta_id INTEGER REFERENCES propostas(id) ON DELETE CASCADE, nome_furo VARCHAR(20), sondador VARCHAR(100), data_inicio DATE, data_termino DATE, cota NUMERIC, nivel_agua_inicial NUMERIC, nivel_agua_final NUMERIC, revestimento NUMERIC, coordenadas TEXT);
 CREATE TABLE IF NOT EXISTS amostras (id SERIAL PRIMARY KEY, furo_id INTEGER REFERENCES furos(id) ON DELETE CASCADE, profundidade_ini NUMERIC, profundidade_fim NUMERIC, golpe_1 INTEGER, golpe_2 INTEGER, golpe_3 INTEGER, tipo_solo TEXT, cor_solo TEXT, obs_solo TEXT);
 CREATE TABLE IF NOT EXISTS fotos (id SERIAL PRIMARY KEY, furo_id INTEGER REFERENCES furos(id) ON DELETE CASCADE, imagem TEXT, legenda VARCHAR(100), data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
--- CRIAÇÃO DO STATUS
 ALTER TABLE propostas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Em Aberto';
 `;
 pool.query(initSQL).then(() => { console.log('>>> DB OK <<<'); app.listen(port, () => { console.log(`Rodando na porta ${port}`); }); });
