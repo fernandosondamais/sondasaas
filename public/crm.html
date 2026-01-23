@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>SondaSaaS | Fluxo de Obras</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #ebecf0; font-family: 'Segoe UI', sans-serif; overflow-x: auto; }
+        .board { display: flex; padding: 20px; gap: 20px; height: calc(100vh - 70px); align-items: flex-start; }
+        .column { background: #f4f5f7; width: 300px; min-width: 300px; border-radius: 10px; padding: 10px; max-height: 100%; display: flex; flex-direction: column; }
+        .col-head { font-weight: bold; color: #172b4d; padding: 10px; display: flex; justify-content: space-between; }
+        .col-body { flex-grow: 1; overflow-y: auto; padding: 5px; min-height: 100px; }
+        
+        .card-item { 
+            background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: grab; border-left: 4px solid transparent; 
+        }
+        .card-item:hover { transform: translateY(-2px); }
+        
+        /* Cores dos Status */
+        .status-aberto { border-color: #ffc107; }
+        .status-aprovada { border-color: #8CBF26; }
+        .status-execucao { border-color: #0dcaf0; }
+        .status-finalizada { border-color: #212529; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark px-3" style="height: 60px;">
+        <span class="navbar-brand fw-bold text-success"><i class="bi bi-kanban me-2"></i>Fluxo CRM</span>
+        <div>
+            <a href="/admin" class="btn btn-sm btn-outline-light me-2">Voltar</a>
+            <a href="/orcamento" class="btn btn-sm btn-success fw-bold">+ Nova Obra</a>
+        </div>
+    </nav>
+
+    <div class="board">
+        <div class="column">
+            <div class="col-head">EM ABERTO <span class="badge bg-secondary" id="count-aberto">0</span></div>
+            <div class="col-body" id="col-aberto" ondrop="drop(event, 'Em Aberto')" ondragover="allowDrop(event)"></div>
+        </div>
+        <div class="column">
+            <div class="col-head">APROVADA <span class="badge bg-success" id="count-aprovada">0</span></div>
+            <div class="col-body" id="col-aprovada" ondrop="drop(event, 'Aprovada')" ondragover="allowDrop(event)"></div>
+        </div>
+        <div class="column">
+            <div class="col-head">EM EXECUÇÃO <span class="badge bg-info text-dark" id="count-execucao">0</span></div>
+            <div class="col-body" id="col-execucao" ondrop="drop(event, 'Em Execução')" ondragover="allowDrop(event)"></div>
+        </div>
+        <div class="column">
+            <div class="col-head">FINALIZADA <span class="badge bg-dark" id="count-finalizada">0</span></div>
+            <div class="col-body" id="col-finalizada" ondrop="drop(event, 'Finalizada')" ondragover="allowDrop(event)"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', carregarBoard);
+
+        async function carregarBoard() {
+            try {
+                const res = await fetch('/api/propostas');
+                const data = await res.json();
+                
+                ['aberto', 'aprovada', 'execucao', 'finalizada'].forEach(id => document.getElementById('col-'+id).innerHTML = '');
+                const counts = { 'Em Aberto': 0, 'Aprovada': 0, 'Em Execução': 0, 'Finalizada': 0 };
+
+                data.forEach(p => {
+                    const status = p.status || 'Em Aberto';
+                    const card = document.createElement('div');
+                    
+                    let classeCor = 'status-aberto';
+                    let targetCol = 'col-aberto';
+
+                    if(status === 'Aprovada') { targetCol = 'col-aprovada'; classeCor = 'status-aprovada'; }
+                    if(status === 'Em Execução') { targetCol = 'col-execucao'; classeCor = 'status-execucao'; }
+                    if(status === 'Finalizada') { targetCol = 'col-finalizada'; classeCor = 'status-finalizada'; }
+
+                    card.className = `card-item ${classeCor}`;
+                    card.draggable = true;
+                    card.id = p.id;
+                    card.ondragstart = (e) => e.dataTransfer.setData("text", p.id);
+                    
+                    const valor = parseFloat(p.valor_total).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+                    
+                    let botoes = `<div class="d-flex justify-content-end gap-2 mt-2 pt-2 border-top">
+                        <a href="/reemitir-pdf/${p.id}" target="_blank" class="text-secondary" title="PDF"><i class="bi bi-file-earmark-pdf"></i></a>`;
+                    
+                    if(status !== 'Em Aberto') {
+                        botoes += `<a href="/engenharia?id=${p.id}" class="text-primary" title="Engenharia"><i class="bi bi-bricks"></i></a>`;
+                    }
+                    botoes += `</div>`;
+
+                    card.innerHTML = `
+                        <div class="d-flex justify-content-between mb-1"><small class="text-muted">#${p.id}</small> <small class="text-muted">${new Date(p.data_criacao).toLocaleDateString('pt-BR')}</small></div>
+                        <div class="fw-bold mb-1">${p.cliente}</div>
+                        <div class="small text-muted mb-2 text-truncate"><i class="bi bi-geo-alt"></i> ${p.endereco}</div>
+                        <div class="fw-bold text-success">${valor}</div>
+                        ${botoes}
+                    `;
+                    
+                    document.getElementById(targetCol).appendChild(card);
+                    if(counts[status] !== undefined) counts[status]++;
+                });
+
+                document.getElementById('count-aberto').innerText = counts['Em Aberto'];
+                document.getElementById('count-aprovada').innerText = counts['Aprovada'];
+                document.getElementById('count-execucao').innerText = counts['Em Execução'];
+                document.getElementById('count-finalizada').innerText = counts['Finalizada'];
+            } catch (e) { console.error(e); }
+        }
+
+        function allowDrop(ev) { ev.preventDefault(); }
+        
+        function drop(ev, novoStatus) {
+            ev.preventDefault();
+            const id = ev.dataTransfer.getData("text");
+            // Atualiza visualmente e no banco
+            fetch(`/api/propostas/${id}/status`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ status: novoStatus })
+            }).then(() => carregarBoard());
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
