@@ -1,5 +1,4 @@
-// controllers/propostasController.js
-const pool = require('../config/db');
+const pool = require('../config/db'); // Caminho correto para sair de controllers e ir para config
 const PDFDocument = require('pdfkit');
 
 const COLORS = { SONDA_GREEN: '#8CBF26' };

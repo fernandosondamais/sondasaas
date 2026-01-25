@@ -72,11 +72,9 @@
 
                 data.forEach(p => {
                     const tr = document.createElement('tr');
-                    // Tratamento de datas e valores
                     const dataFmt = new Date(p.data_criacao).toLocaleDateString('pt-BR');
                     const valorFmt = parseFloat(p.valor_total || 0).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
                     
-                    // Badge de Status (Cores)
                     let badgeClass = 'bg-secondary';
                     if(p.status === 'Aprovada') badgeClass = 'bg-success';
                     if(p.status === 'Em Execução') badgeClass = 'bg-info text-dark';
@@ -84,7 +82,6 @@
                     
                     const statusBadge = p.status ? `<span class="badge ${badgeClass} ms-2">${p.status}</span>` : '';
 
-                    // Formatação de Telefone (WhatsApp)
                     let displayTel = '<span class="text-muted">-</span>';
                     if (p.telefone) {
                         let num = p.telefone.replace(/\D/g, '');

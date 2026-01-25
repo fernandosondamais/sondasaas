@@ -1,8 +1,8 @@
-// config/db.js
 require('dotenv').config();
 const { Pool } = require('pg');
 
 const isProduction = process.env.NODE_ENV === 'production';
+// Se não houver variavel definida, usa a string local padrão
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:admin123@localhost:5432/sondasaas';
 
 const pool = new Pool({
@@ -11,7 +11,8 @@ const pool = new Pool({
 });
 
 pool.on('connect', () => {
-    if (!isProduction) console.log('>>> DB Conectado <<<');
+    // Log apenas em dev para não poluir produção
+    if (!isProduction) console.log('>>> PostgreSQL Conectado com Sucesso <<<');
 });
 
 module.exports = pool;

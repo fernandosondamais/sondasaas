@@ -15,7 +15,6 @@
         .card-obra { border: none; border-left: 5px solid var(--sonda-green); margin-bottom: 10px; cursor: pointer; }
         .btn-grande { width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; margin-top: 10px; }
         .input-golpe { border: 1px solid #ced4da; border-radius: 5px; text-align: center; font-size: 1.2rem; font-weight: bold; color: var(--sonda-dark); }
-        .input-golpe:focus { border-color: var(--sonda-green); box-shadow: 0 0 0 0.2rem rgba(106, 150, 21, 0.25); }
         .table-custom th { background-color: #e9ecef; font-size: 0.8rem; text-transform: uppercase; }
         .table-custom td { vertical-align: middle; padding: 8px 4px; }
         .prof-cell { font-weight: bold; color: var(--sonda-green); }
@@ -31,7 +30,7 @@
     <div id="tela-obras" class="tela ativa">
         <div class="header-campo d-flex justify-content-between align-items-center">
             <span class="fw-bold"><i class="bi bi-cone-striped me-2"></i>OBRAS</span>
-            <small class="text-white-50">v2.3 (Fix)</small>
+            <small class="text-white-50">v2.4 (Galeria)</small>
         </div>
         <div class="container mt-3" id="lista-obras">
             <div class="text-center py-5"><div class="spinner-border text-success"></div></div>
@@ -45,7 +44,7 @@
         </div>
         <div class="container mt-3">
             <div id="lista-furos"></div>
-            <button class="btn btn-sonda btn-grande btn-success" onclick="abrirNovoFuro()">
+            <button class="btn btn-grande btn-success" onclick="abrirNovoFuro()">
                 <i class="bi bi-plus-lg me-2"></i>ABRIR NOVO FURO
             </button>
         </div>
@@ -98,14 +97,15 @@
                 <i class="bi bi-camera fs-1 text-muted"></i>
                 <h6 class="text-muted mt-2">Adicionar Foto</h6>
                 <p class="small text-muted mb-3">Sondas, Amostras ou Local.</p>
-                
                 <input type="file" id="inputCamera" accept="image/*" class="d-none" onchange="processarFoto()">
-                
                 <button class="btn btn-primary w-100 fw-bold" onclick="document.getElementById('inputCamera').click()">
-                    <i class="bi bi-camera-fill me-2"></i>ABRIR CÂMERA / GALERIA
+                    <i class="bi bi-camera-fill me-2"></i>ABRIR CÂMERA / ARQUIVO
                 </button>
             </div>
-            <div id="galeria-fotos" class="row g-3"></div>
+            
+            <h6 class="text-muted ms-1 mb-2">Fotos Salvas</h6>
+            <div id="galeria-fotos" class="row g-3">
+                </div>
         </div>
     </div>
 
@@ -155,6 +155,8 @@
             document.getElementById('conteudo-fotos').style.display = aba === 'fotos' ? 'block' : 'none';
             document.getElementById('tab-dados').classList.toggle('active', aba === 'dados');
             document.getElementById('tab-fotos').classList.toggle('active', aba === 'fotos');
+            
+            // Se clicar na aba fotos, recarrega a galeria
             if(aba === 'fotos') carregarFotos();
         }
 
@@ -172,7 +174,7 @@
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
-                        const maxWidth = 800;
+                        const maxWidth = 800; // Reduz tamanho para não pesar no banco
                         const scale = maxWidth / img.width;
                         canvas.width = maxWidth;
                         canvas.height = img.height * scale;
@@ -197,16 +199,29 @@
         }
 
         function carregarFotos() {
+            const div = document.getElementById('galeria-fotos');
+            div.innerHTML = '<div class="col-12 text-center"><div class="spinner-border spinner-border-sm"></div></div>';
+            
             fetch(`/api/boletim/fotos/${furoId}`).then(r=>r.json()).then(data => {
-                const div = document.getElementById('galeria-fotos');
                 div.innerHTML = '';
-                if(data.length === 0) div.innerHTML = '<p class="text-center text-muted col-12 my-4">Nenhuma foto neste furo.</p>';
+                if(data.length === 0) div.innerHTML = '<p class="text-center text-muted col-12 my-4">Nenhuma foto salva neste furo.</p>';
+                
                 data.forEach(f => {
-                    div.innerHTML += `<div class="col-6"><div class="card shadow-sm h-100"><div class="card-body p-2 text-center bg-light d-flex flex-column justify-content-center" style="min-height: 100px;"><i class="bi bi-image fs-1 text-success mb-2"></i><small class="fw-bold d-block text-truncate w-100">${f.legenda}</small><small class="text-muted" style="font-size:0.7rem">${new Date(f.data_upload).toLocaleDateString()}</small></div></div></div>`;
+                    div.innerHTML += `
+                        <div class="col-6">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body p-2 text-center bg-white d-flex flex-column justify-content-center">
+                                    <img src="/api/foto-full/${f.id}" class="img-fluid rounded mb-2" style="max-height: 150px; object-fit: cover;">
+                                    <small class="fw-bold d-block text-truncate w-100">${f.legenda}</small>
+                                    <small class="text-muted" style="font-size:0.7rem">${new Date(f.data_upload).toLocaleDateString()}</small>
+                                </div>
+                            </div>
+                        </div>`;
                 });
             });
         }
 
+        // --- SISTEMA DE NAVEGAÇÃO E DADOS ---
         function carregarObras() {
             fetch('/api/propostas').then(r=>r.json()).then(d => {
                 const el = document.getElementById('lista-obras'); el.innerHTML = '';
@@ -221,7 +236,15 @@
             });
         }
         function abrirNovoFuro() { const nome = prompt("Nome (Ex: SP-01):", "SP-"); if(!nome) return; fetch('/api/boletim/furos', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ proposta_id: obraId, nome_furo: nome, sondador: 'Padrão', data_inicio: new Date(), nivel_agua_inicial: 0 }) }).then(r=>r.json()).then(d => abrirFuro(d.id, nome)); }
-        function abrirFuro(id, nome) { furoId = id; document.getElementById('titulo-furo').innerText = nome; mostrar('tela-amostras'); carregarAmostras(); alternarAba('dados'); }
+        
+        function abrirFuro(id, nome) { 
+            furoId = id; 
+            document.getElementById('titulo-furo').innerText = nome; 
+            mostrar('tela-amostras'); 
+            carregarAmostras(); 
+            alternarAba('dados'); 
+        }
+
         function carregarAmostras() {
             fetch(`/api/boletim/amostras/${furoId}`).then(r=>r.json()).then(d => {
                 const el = document.getElementById('tbody-amostras'); el.innerHTML = ''; nextProf = 1.0;
@@ -230,17 +253,18 @@
                 ['g1','g2','g3','solo'].forEach(i => document.getElementById(i).value = '');
             });
         }
+
         function salvarAmostra() {
             const g1 = document.getElementById('g1').value; const g2 = document.getElementById('g2').value; const g3 = document.getElementById('g3').value; const solo = document.getElementById('solo').value;
             if(!g1 || !g2 || !g3) return alert('Preencha os golpes!');
             fetch('/api/boletim/amostras', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ furo_id: furoId, profundidade_ini: nextProf, profundidade_fim: nextProf + 0.45, golpe_1: g1, golpe_2: g2, golpe_3: g3, tipo_solo: solo, cor_solo: '' }) }).then(() => carregarAmostras());
         }
+
         function addLinhaTabela(a) { document.getElementById('tbody-amostras').innerHTML = `<tr><td class="prof-cell">${parseFloat(a.profundidade_ini).toFixed(2)}</td><td>${a.golpe_1}</td><td>${a.golpe_2}</td><td>${a.golpe_3}</td><td class="text-start small text-muted">${a.tipo_solo || '-'}</td></tr>` + document.getElementById('tbody-amostras').innerHTML; }
         
         function abrirModalDados() { document.getElementById('modal-dados').style.display = 'flex'; }
         function fecharModal(e) { if(e.target.id === 'modal-dados') document.getElementById('modal-dados').style.display = 'none'; }
         
-        // --- FUNÇÃO ATUALIZADA PARA SALVAR NIVEL FINAL ---
         function salvarDadosFuro() { 
             const dados = { 
                 nivel_agua_inicial: document.getElementById('na_ini').value || null, 

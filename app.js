@@ -1,4 +1,3 @@
-// app.js - Versão Refatorada v3.0 (CORRIGIDA)
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -9,43 +8,51 @@ const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configurações
+// Configurações Básicas
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
 app.use(express.static('public')); 
 
+// Variáveis Globais e Constantes
 global.adminLogado = false; 
 const SENHA_MESTRA = process.env.SENHA_MESTRA || 'admin123';
 const COLORS = { PRIMARY: '#444444', SONDA_GREEN: '#8CBF26', GRID_LINE: '#aaaaaa' };
 
-// --- ROTAS DE API (MODULARIZADAS) ---
-// Aqui conectamos as pastas que você criou!
+// --- 1. ROTAS MVC (Novo Padrão) ---
 const propostasRoutes = require('./routes/propostas');
 const propostasController = require('./controllers/propostasController');
 
+// Conecta a rota /api/propostas ao arquivo separado
 app.use('/api/propostas', propostasRoutes);
+// Rota legada para criar proposta via form HTML (redireciona para Controller)
 app.post('/gerar-proposta', propostasController.criarProposta); 
 
-// --- ROTAS DE PÁGINAS ---
+// --- 2. ROTAS DE PÁGINAS (Frontend) ---
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/orcamento', (req, res) => res.sendFile(path.join(__dirname, 'public', 'orcamento.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/boletim', (req, res) => res.sendFile(path.join(__dirname, 'public', 'boletim.html')));
 
-// Rotas Protegidas
-app.get('/crm', (req, res) => global.adminLogado ? res.sendFile(path.join(__dirname, 'public', 'crm.html')) : res.redirect('/login'));
-app.get('/admin', (req, res) => global.adminLogado ? res.sendFile(path.join(__dirname, 'public', 'admin.html')) : res.redirect('/login'));
-app.get('/engenharia', (req, res) => global.adminLogado ? res.sendFile(path.join(__dirname, 'public', 'engenharia.html')) : res.redirect('/login')); 
-app.get('/logout', (req, res) => { global.adminLogado = false; res.redirect('/login'); });
+// Rotas Protegidas (Middleware simples)
+const checkAuth = (req, res, next) => {
+    if (global.adminLogado) next();
+    else res.redirect('/login');
+};
 
-// Login API
+app.get('/crm', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'crm.html')));
+app.get('/admin', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/engenharia', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'engenharia.html'))); 
+
+// Login/Logout
+app.get('/logout', (req, res) => { global.adminLogado = false; res.redirect('/login'); });
 app.post('/api/login', (req, res) => {
     if (req.body.senha === SENHA_MESTRA) { global.adminLogado = true; res.sendStatus(200); } else { res.sendStatus(401); }
 });
 
-// --- CÓDIGO LEGADO DO BOLETIM E RELATÓRIO TÉCNICO (MANTIDO DO ORIGINAL) ---
-// (Estou colando aqui o bloco exato para você não ter trabalho de procurar)
+// --- 3. ROTAS API LEGADAS (Boletim Mobile & Relatório Técnico) ---
+// Mantidas aqui temporariamente para garantir funcionamento do App de Campo
 
+// Dados para Engenharia
 app.get('/api/engenharia/:id', async (req, res) => {
     if (!global.adminLogado) return res.status(403).send('Acesso Negado');
     try {
@@ -73,7 +80,7 @@ app.get('/api/boletim/fotos/:furoId', async (req, res) => { try { const r = awai
 app.post('/api/boletim/fotos', async (req, res) => { const {furo_id, imagem_base64, legenda} = req.body; try { await pool.query(`INSERT INTO fotos (furo_id, imagem, legenda) VALUES ($1, $2, $3)`, [furo_id, imagem_base64, legenda]); res.sendStatus(200); } catch (e) { res.status(500).json(e); } });
 app.get('/api/foto-full/:id', async (req, res) => { try { const r = await pool.query('SELECT imagem FROM fotos WHERE id = $1', [req.params.id]); if(r.rows.length > 0) { const img = Buffer.from(r.rows[0].imagem.split(",")[1], 'base64'); res.writeHead(200, {'Content-Type': 'image/jpeg', 'Content-Length': img.length}); res.end(img); } else res.status(404).send('Not found'); } catch(e) { res.status(500).send(e); } });
 
-// --- GERAÇÃO RELATÓRIO TÉCNICO (CÓDIGO ORIGINAL MANTIDO) ---
+// --- GERAÇÃO RELATÓRIO TÉCNICO FINAL (MANTIDO DO ORIGINAL) ---
 app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
     if (!global.adminLogado) return res.redirect('/login');
     try {
@@ -113,7 +120,7 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
         doc.moveDown(4);
         doc.text('Eng. Fabiano Rielli - CREA: 5069965546', { align: 'center' });
 
-        // Perfis
+        // Perfis de Sondagem
         for (let i = 0; i < furos.length; i++) {
             const furo = furos[i];
             const amosRes = await pool.query('SELECT * FROM amostras WHERE furo_id = $1 ORDER BY profundidade_ini ASC', [furo.id]);
@@ -127,6 +134,11 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
             doc.text('CLIENTE:', 25, topY + 8); doc.font('Helvetica').text(proposta.cliente, 70, topY + 8);
             doc.font('Helvetica-Bold').text('FURO:', 450, topY + 8); doc.fontSize(12).text(furo.nome_furo, 485, topY + 6);
             
+            // Cabeçalho Nível D'água
+            if(furo.nivel_agua_inicial || furo.nivel_agua_final) {
+                doc.fontSize(8).text(`NA Inicial: ${furo.nivel_agua_inicial || '-'}m | NA Final (24h): ${furo.nivel_agua_final || '-'}m`, 300, topY + 35);
+            }
+
             const yHeader = 100; const yStart = 120;
             const col = { PROF: 20, GRAF: 60, GOLPES: 180, NSPT: 240, PERFIL: 280, DESC: 320, END: 575 };
             doc.font('Helvetica-Bold').fontSize(8);
@@ -183,7 +195,9 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
                     try {
                         const img = Buffer.from(foto.imagem.split(",")[1], 'base64');
                         doc.image(img, 100, yFoto, { width: 300 });
-                        yFoto += 250;
+                        doc.text(foto.legenda || '', 100, yFoto + 230);
+                        yFoto += 260;
+                        if(yFoto > 700) { doc.addPage(); yFoto = 50; }
                     } catch(e){}
                 }
             }
@@ -201,4 +215,4 @@ function drawGridLines(doc, yStart, yEnd, col) {
     doc.restore();
 }
 
-app.listen(port, () => { console.log(`Rodando na porta ${port}`); });
+app.listen(port, () => { console.log(`>>> SondaSaaS rodando na porta ${port} <<<`); });
