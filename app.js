@@ -15,22 +15,26 @@ app.use(express.static('public'));
 
 global.adminLogado = false; 
 const SENHA_MESTRA = process.env.SENHA_MESTRA || 'admin123';
-const COLORS = { PRIMARY: '#444444', SONDA_GREEN: '#8CBF26', GRID_LINE: '#aaaaaa' };
+const COLORS = { 
+    SONDA_GREEN: '#8CBF26', 
+    DARK_TEXT: '#333333',
+    GRID: '#cccccc',
+    RED_GRAPH: '#cc0000'
+};
 
 // --- ROTAS MVC ---
 const propostasRoutes = require('./routes/propostas');
 const propostasController = require('./controllers/propostasController');
-
 app.use('/api/propostas', propostasRoutes);
 app.post('/gerar-proposta', propostasController.criarProposta); 
 
-// --- ROTAS FRONTEND ---
+// --- ROTAS DE PÁGINAS ---
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/orcamento', (req, res) => res.sendFile(path.join(__dirname, 'public', 'orcamento.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/boletim', (req, res) => res.sendFile(path.join(__dirname, 'public', 'boletim.html')));
 
-// Middleware Auth
+// Auth Middleware
 const checkAuth = (req, res, next) => {
     if (global.adminLogado) next();
     else res.redirect('/login');
@@ -39,14 +43,13 @@ const checkAuth = (req, res, next) => {
 app.get('/crm', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'crm.html')));
 app.get('/admin', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/engenharia', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'engenharia.html'))); 
-
-// Login/Logout
 app.get('/logout', (req, res) => { global.adminLogado = false; res.redirect('/login'); });
 app.post('/api/login', (req, res) => {
     if (req.body.senha === SENHA_MESTRA) { global.adminLogado = true; res.sendStatus(200); } else { res.sendStatus(401); }
 });
 
 // --- API BOLETIM (MOBILE) ---
+// Mantendo a compatibilidade com o app
 app.get('/api/engenharia/:id', async (req, res) => {
     if (!global.adminLogado) return res.status(403).send('Acesso Negado');
     try {
@@ -74,7 +77,7 @@ app.post('/api/boletim/fotos', async (req, res) => { const {furo_id, imagem_base
 app.get('/api/foto-full/:id', async (req, res) => { try { const r = await pool.query('SELECT imagem FROM fotos WHERE id = $1', [req.params.id]); if(r.rows.length > 0) { const img = Buffer.from(r.rows[0].imagem.split(",")[1], 'base64'); res.writeHead(200, {'Content-Type': 'image/jpeg', 'Content-Length': img.length}); res.end(img); } else res.status(404).send('Not found'); } catch(e) { res.status(500).send(e); } });
 
 
-// --- MOTOR DE RELATÓRIO TÉCNICO (PADRÃO RGSE/OPORTUNA) ---
+// --- GERAÇÃO DE RELATÓRIO TÉCNICO (NORMA NBR 6484:2020) ---
 app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
     if (!global.adminLogado) return res.redirect('/login');
     try {
@@ -84,23 +87,58 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
         const furosRes = await pool.query('SELECT * FROM furos WHERE proposta_id = $1 ORDER BY id ASC', [propId]);
         const furos = furosRes.rows;
 
-        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+        const doc = new PDFDocument({ margin: 25, size: 'A4', bufferPages: true });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Relatorio_Tecnico_${proposta.id}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Relatorio_Tecnico_Final_${proposta.id}.pdf"`);
         doc.pipe(res);
 
-        // --- CAPA ---
-        doc.rect(0, 0, 595, 842).fill('#ffffff');
+        // LOGO PADRÃO
         const logoPath = path.join(__dirname, 'public', 'logo.png');
-        if (fs.existsSync(logoPath)) { doc.image(logoPath, 197, 200, { width: 200 }); }
-        
-        doc.fillColor(COLORS.SONDA_GREEN).font('Helvetica-Bold').fontSize(26).text('RELATÓRIO DE SONDAGEM', 0, 450, { align: 'center' });
-        doc.fillColor('#444').fontSize(16).text('PERFIL GEOLÓGICO-GEOTÉCNICO (SPT)', 0, 490, { align: 'center' });
-        doc.fontSize(12).fillColor('black').text(proposta.cliente.toUpperCase(), 0, 600, { align: 'center' });
-        doc.font('Helvetica').fontSize(10).text(proposta.endereco, 0, 620, { align: 'center' });
-        doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 0, 770, { align: 'center' });
+        const drawLogo = (x, y, w) => { if (fs.existsSync(logoPath)) doc.image(logoPath, x, y, { width: w }); };
 
-        // --- PÁGINAS DOS FUROS ---
+        // --- PÁGINA 1: CAPA ---
+        doc.rect(0, 0, 595, 842).fill('white');
+        drawLogo(197, 150, 200);
+        
+        doc.moveDown(12);
+        doc.font('Helvetica-Bold').fontSize(24).fillColor(COLORS.SONDA_GREEN).text('RELATÓRIO DE SONDAGEM', { align: 'center' });
+        doc.fontSize(14).fillColor('#555').text('PERFIL GEOLÓGICO-GEOTÉCNICO', { align: 'center' });
+        doc.moveDown(2);
+        
+        doc.fontSize(12).fillColor('black').text(`CLIENTE: ${proposta.cliente.toUpperCase()}`, { align: 'center' });
+        doc.text(`OBRA: ${proposta.endereco}`, { align: 'center' });
+        doc.text(`REF: PROPOSTA ${proposta.id}/2026`, { align: 'center' });
+        
+        doc.moveDown(8);
+        doc.fontSize(10).text(`Valinhos, ${new Date().toLocaleDateString('pt-BR')}`, { align: 'center' });
+        doc.text('Eng. Responsável: Fabiano Rielli', { align: 'center' });
+
+        // --- PÁGINA 2: METODOLOGIA E LEGENDA (OBRIGATÓRIO NBR) ---
+        doc.addPage();
+        drawLogo(30, 30, 80);
+        doc.font('Helvetica-Bold').fontSize(14).text('1. METODOLOGIA EXECUTIVA', 30, 100);
+        doc.font('Helvetica').fontSize(10).text(
+            `A sondagem foi executada estritamente conforme a norma NBR 6484:2020 "Solo - Sondagem de simples reconhecimento com SPT - Método de ensaio".\n\n` +
+            `• Equipamento: O ensaio utiliza um amostrador padrão (terreno) acoplado a hastes, cravado no solo por um peso de 65kg caindo em queda livre de 75cm.\n` +
+            `• SPT (Standard Penetration Test): O índice de resistência à penetração (N) corresponde à soma dos golpes necessários para cravar os últimos 30cm do amostrador.\n` +
+            `• Amostragem: Amostras deformadas foram coletadas metro a metro para classificação tátil-visual.\n` +
+            `• Nível D'água: Medido ao final da sondagem e confirmado após 24h, quando possível.\n` +
+            `• Critério de Paralisação: Conforme item 6.2.4 da norma, ou impenetrável à percussão/lavagem.`,
+            { align: 'justify', width: 535 }
+        );
+
+        doc.moveDown(2);
+        doc.font('Helvetica-Bold').fontSize(14).text('2. LEGENDA E CONVENÇÕES');
+        // Desenhar uma legenda simples de consistência
+        const startY = doc.y + 10;
+        doc.rect(30, startY, 535, 120).stroke();
+        doc.font('Helvetica-Bold').fontSize(9).text('CONSISTÊNCIA (ARGILAS)', 40, startY + 10);
+        doc.font('Helvetica').text('0-2: Muito Mole | 3-5: Mole | 6-10: Média | 11-19: Rija | >19: Dura', 40, startY + 25);
+        
+        doc.font('Helvetica-Bold').text('COMPACIDADE (AREIAS)', 40, startY + 50);
+        doc.font('Helvetica').text('0-4: Fofa | 5-8: Pouco Compacta | 9-18: Med. Compacta | 19-40: Compacta | >40: Muito Compacta', 40, startY + 65);
+
+        // --- PÁGINAS DOS FUROS (O CORAÇÃO DO RELATÓRIO) ---
         for (let i = 0; i < furos.length; i++) {
             const furo = furos[i];
             const amosRes = await pool.query('SELECT * FROM amostras WHERE furo_id = $1 ORDER BY profundidade_ini ASC', [furo.id]);
@@ -109,111 +147,161 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
 
             doc.addPage();
             
-            // Definição das Colunas (Layout igual ao PDF Oportuna)
-            const X = { PROF: 30, GRAF_INI: 80, GRAF_FIM: 280, NSPT: 300, SOLO: 340, FIM: 570 };
+            // LAYOUT DE COLUNAS (Rigoroso NBR)
+            // PROF | AMOSTRA | GOLPES (1/2/3) | NSPT | GRAFICO | DESCRICAO
+            const X = { 
+                PROF: 30, 
+                AMOSTRA: 65, 
+                GOLPES: 100, 
+                NSPT: 160, 
+                GRAF_INI: 190, 
+                GRAF_FIM: 340, 
+                DESC: 350, 
+                FIM: 570 
+            };
             
-            // Cabeçalho da Página (Box)
-            doc.rect(20, 20, 555, 90).stroke();
-            if (fs.existsSync(logoPath)) { doc.image(logoPath, 25, 25, { width: 80 }); }
+            // 1. CABEÇALHO TÉCNICO (BOX)
+            doc.rect(25, 25, 545, 85).stroke();
+            if (fs.existsSync(logoPath)) { doc.image(logoPath, 30, 30, { width: 80 }); }
             
-            doc.font('Helvetica-Bold').fontSize(14).fillColor('black').text('PERFIL INDIVIDUAL DE SONDAGEM', 120, 35);
-            doc.fontSize(9).font('Helvetica');
-            doc.text(`CLIENTE: ${proposta.cliente}`, 120, 60);
-            doc.text(`LOCAL: ${proposta.endereco}`, 120, 75);
-            doc.text(`FURO: ${furo.nome_furo}`, 450, 60);
-            doc.text(`DATA: ${furo.data_inicio ? new Date(furo.data_inicio).toLocaleDateString('pt-BR') : '-'}`, 450, 75);
+            doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
+               .text('PERFIL INDIVIDUAL DE SONDAGEM À PERCUSSÃO', 130, 35);
+            
+            doc.fontSize(8).font('Helvetica');
+            // Coluna 1 do Header
+            doc.text(`CLIENTE:`, 130, 55); doc.font('Helvetica-Bold').text(proposta.cliente, 170, 55);
+            doc.font('Helvetica').text(`LOCAL:`, 130, 68); doc.font('Helvetica-Bold').text(proposta.endereco, 170, 68);
+            doc.font('Helvetica').text(`COTA:`, 130, 81); doc.text(furo.cota || 'Não informada', 170, 81);
 
-            // Nível D'água (Faixa Cinza igual RGSE)
-            doc.rect(20, 95, 555, 15).fill('#e0e0e0').stroke();
+            // Coluna 2 do Header
+            doc.font('Helvetica').text(`FURO Nº:`, 400, 55); doc.font('Helvetica-Bold').fontSize(12).text(furo.nome_furo, 445, 53);
+            doc.fontSize(8).font('Helvetica').text(`DATA INÍCIO:`, 400, 68); doc.text(furo.data_inicio ? new Date(furo.data_inicio).toLocaleDateString() : '-', 455, 68);
+            doc.text(`DATA FIM:`, 400, 81); doc.text(furo.data_termino ? new Date(furo.data_termino).toLocaleDateString() : '-', 455, 81);
+            doc.text(`COORD:`, 400, 94); doc.text(furo.coordenadas || '-', 455, 94);
+
+            // Nível D'água (Barra Cinza)
+            doc.rect(25, 115, 545, 15).fill('#eeeeee').stroke();
             doc.fillColor('black').font('Helvetica-Bold').fontSize(8);
             
-            let txtAgua = `NÍVEL D'ÁGUA INICIAL: ${furo.nivel_agua_inicial ? furo.nivel_agua_inicial + 'm' : 'Não atingido'}`;
-            if(furo.nivel_agua_final) txtAgua += `  |  APÓS 24H: ${furo.nivel_agua_final}m`;
+            let txtNA = `NÍVEL D'ÁGUA: `;
+            if(furo.nivel_agua_inicial) txtNA += `Inicial: ${furo.nivel_agua_inicial}m`; else txtNA += `Inicial: Não atingido`;
+            if(furo.nivel_agua_final) txtNA += `  |  Final (24h): ${furo.nivel_agua_final}m`;
             
-            doc.text(txtAgua, 30, 99);
+            doc.text(txtNA, 35, 119);
 
-            // Cabeçalho da Tabela (Verde Sondamais)
-            doc.rect(20, 115, 555, 20).fill(COLORS.SONDA_GREEN).stroke();
-            doc.fillColor('white').font('Helvetica-Bold').fontSize(8);
-            doc.text('PROF (m)', X.PROF, 122);
-            doc.text('GRÁFICO NSPT', X.GRAF_INI + 70, 122);
-            doc.text('NSPT', X.NSPT, 122);
-            doc.text('DESCRIÇÃO DO SOLO', X.SOLO, 122);
-
-            // Dados
-            let currentY = 140;
-            let prevX = null; let prevY = null;
+            // 2. CABEÇALHOS DA TABELA
+            const yHead = 135;
+            doc.rect(25, yHead, 545, 25).fill(COLORS.SONDA_GREEN).stroke();
+            doc.fillColor('white').font('Helvetica-Bold').fontSize(7);
             
-            // Função para desenhar a grade vertical do gráfico (0, 10, 20, 30, 40, 50)
-            const drawGrid = (yStart, yEnd) => {
-                doc.save().strokeColor('#ccc').lineWidth(0.5);
+            doc.text('PROF (m)', X.PROF, yHead+8, {width: 30, align: 'center'});
+            doc.text('AMOST', X.AMOSTRA, yHead+8, {width: 30, align: 'center'});
+            doc.text('GOLPES', X.GOLPES, yHead+3, {width: 50, align: 'center'});
+            doc.text('30+30+30', X.GOLPES, yHead+12, {width: 50, align: 'center'});
+            doc.text('NSPT', X.NSPT, yHead+8, {width: 25, align: 'center'});
+            doc.text('GRÁFICO N (Golpes)', X.GRAF_INI, yHead+8, {width: (X.GRAF_FIM - X.GRAF_INI), align: 'center'});
+            doc.text('DESCRIÇÃO DO MATERIAL', X.DESC + 5, yHead+8, {align: 'left'});
+
+            // 3. DESENHO DOS DADOS E GRÁFICO
+            let currentY = 160;
+            let prevX = null; 
+            let prevY = null;
+            
+            // Função para desenhar a grade do gráfico (0,10,20,30,40,50)
+            const drawGrid = (yTop, yBottom) => {
+                doc.save().strokeColor('#e0e0e0').lineWidth(0.5);
                 for(let k=0; k<=5; k++) {
                     let gx = X.GRAF_INI + (k * (X.GRAF_FIM - X.GRAF_INI)/5);
-                    doc.moveTo(gx, yStart).lineTo(gx, yEnd).stroke();
-                    if(yStart === 140) doc.fillColor('#666').fontSize(6).text(k*10, gx-3, 132); // Escala
+                    doc.moveTo(gx, yTop).lineTo(gx, yBottom).stroke();
+                    if(yTop === 160) doc.fillColor('#666').fontSize(5).text(k*10, gx-3, yTop-8);
                 }
-                // Linhas verticais separadoras de coluna
-                doc.strokeColor('black').lineWidth(1);
-                [X.GRAF_INI, X.GRAF_FIM, X.SOLO].forEach(x => doc.moveTo(x, 115).lineTo(x, yEnd).stroke());
+                // Linhas Verticais da Tabela
+                doc.strokeColor('black').lineWidth(0.5);
+                [X.PROF, X.AMOSTRA, X.GOLPES, X.NSPT, X.GRAF_INI, X.GRAF_FIM, X.DESC, X.FIM].forEach(x => {
+                   // doc.moveTo(x, yTop).lineTo(x, yBottom).stroke(); 
+                   // Nota: Desativado o loop simples para desenhar bordas exatas depois
+                });
                 doc.restore();
             };
 
             for (let am of amostras) {
-                if (currentY > 750) { // Nova Página se estourar
-                    drawGrid(140, currentY); // Fecha a grade da página anterior
+                if (currentY > 750) { // Quebra de Página
+                    // Fecha caixa da página anterior
+                    doc.rect(25, 160, 545, currentY - 160).stroke();
+                    drawGrid(160, currentY);
+                    
                     doc.addPage(); currentY = 50; prevY = null; prevX = null;
-                    doc.font('Helvetica-Bold').fontSize(10).text(`Continuação ${furo.nome_furo}`, 30, 30);
+                    doc.font('Helvetica-Bold').fontSize(10).fillColor('black').text(`Continuação ${furo.nome_furo}`, 25, 30);
                 }
 
                 const prof = parseFloat(am.profundidade_ini);
-                const nspt = (parseInt(am.golpe_2)||0) + (parseInt(am.golpe_3)||0);
-                const stepH = 25; // Altura da linha
+                const g1 = parseInt(am.golpe_1)||0;
+                const g2 = parseInt(am.golpe_2)||0;
+                const g3 = parseInt(am.golpe_3)||0;
+                const nspt = g2 + g3;
+                const stepH = 20; // Altura da linha
 
-                // Textos
-                doc.fillColor('black').fontSize(9).font('Helvetica-Bold');
-                doc.text(prof.toFixed(0), X.PROF + 5, currentY + 8);
-                doc.text(nspt.toString(), X.NSPT + 5, currentY + 8);
-                doc.font('Helvetica').fontSize(8);
-                doc.text(am.tipo_solo || '-', X.SOLO + 5, currentY + 5, { width: 220 });
+                doc.fillColor('black').fontSize(8).font('Helvetica');
+                
+                // Dados Numéricos
+                doc.text(prof.toFixed(0), X.PROF, currentY+6, {width: 30, align:'center'});
+                doc.text(Math.ceil(prof), X.AMOSTRA, currentY+6, {width: 30, align:'center'}); // Amostra aprox pelo metro
+                doc.text(`${g1} - ${g2} - ${g3}`, X.GOLPES, currentY+6, {width: 50, align:'center'});
+                doc.font('Helvetica-Bold').text(nspt, X.NSPT, currentY+6, {width: 25, align:'center'});
 
-                // Gráfico (Linha Vermelha)
+                // Descrição Solo (Quebra de linha se for grande)
+                doc.font('Helvetica').fontSize(7);
+                doc.text(am.tipo_solo || '-', X.DESC + 5, currentY+6, {width: 210, align:'left'});
+
+                // --- GRÁFICO (LINHA VERMELHA) ---
                 let graphWidth = X.GRAF_FIM - X.GRAF_INI;
-                let pointX = X.GRAF_INI + ((nspt / 50) * graphWidth);
-                if(pointX > X.GRAF_FIM) pointX = X.GRAF_FIM; // Trava em 50
-                let pointY = currentY + 12;
+                let val = nspt > 50 ? 50 : nspt; // Trava em 50
+                let pointX = X.GRAF_INI + ((val / 50) * graphWidth);
+                let pointY = currentY + 10;
 
-                doc.circle(pointX, pointY, 2).fillColor('red').fill();
+                doc.circle(pointX, pointY, 1.5).fillColor('red').fill();
                 if (prevX !== null && prevY !== null) {
                     doc.save().strokeColor('red').lineWidth(1.5).moveTo(prevX, prevY).lineTo(pointX, pointY).stroke().restore();
                 }
                 prevX = pointX; prevY = pointY;
 
-                // Linha Horizontal
-                doc.save().strokeColor('#eee').lineWidth(1).moveTo(20, currentY + stepH).lineTo(570, currentY + stepH).stroke().restore();
+                // Linha Horizontal Fina
+                doc.save().strokeColor('#eee').lineWidth(0.5).moveTo(25, currentY+stepH).lineTo(570, currentY+stepH).stroke().restore();
+                
                 currentY += stepH;
             }
+            
+            // Finalização da Tabela
+            drawGrid(160, currentY); // Desenha a grade
+            doc.rect(25, 160, 545, currentY - 160).stroke(); // Borda Externa
+            
+            // Linhas verticais separadoras (Desenhadas no final para ficarem limpas)
+            doc.save().strokeColor('black').lineWidth(0.5);
+            [X.AMOSTRA, X.GOLPES, X.NSPT, X.GRAF_INI, X.GRAF_FIM, X.DESC].forEach(x => {
+                doc.moveTo(x, 160).lineTo(x, currentY).stroke();
+            });
+            doc.restore();
 
-            drawGrid(140, currentY); // Desenha a grade final
-            doc.rect(20, 115, 555, currentY - 115).stroke(); // Borda da tabela
-
-            // Fotos
+            // PÁGINA DE FOTOS
             if(fotosRes.rows.length > 0) {
                 doc.addPage();
-                doc.font('Helvetica-Bold').fontSize(14).text(`REGISTRO FOTOGRÁFICO - ${furo.nome_furo}`, {align:'center'});
-                let yPos = 80;
+                doc.font('Helvetica-Bold').fontSize(14).text(`ANEXO FOTOGRÁFICO - ${furo.nome_furo}`, {align:'center'});
+                doc.moveDown();
+                
+                let xPos = 40; let yPos = 80;
                 for(let foto of fotosRes.rows) {
                     try {
                         const img = Buffer.from(foto.imagem.split(",")[1], 'base64');
                         if(yPos > 650) { doc.addPage(); yPos = 50; }
                         doc.image(img, 150, yPos, { width: 300 });
-                        doc.fontSize(10).text(foto.legenda || '', 150, yPos + 205, {align:'center', width: 300});
-                        yPos += 240;
+                        doc.fontSize(10).text(foto.legenda || '', 150, yPos + 210, {align:'center', width: 300});
+                        yPos += 250;
                     } catch(e){}
                 }
             }
         }
         doc.end();
-    } catch (err) { console.error(err); res.status(500).send('Erro no relatório'); }
+    } catch (err) { console.error(err); res.status(500).send('Erro no relatório: '+err.message); }
 });
 
 app.listen(port, () => { console.log(`>>> SondaSaaS rodando na porta ${port} <<<`); });
