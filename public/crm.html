@@ -3,61 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SondaSaaS | Fluxo de Obras</title>
+    <title>SondaSaaS | Gestão de Obras</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        :root {
-            --bg-body: #f4f5f7;
-            --bg-column: #ebecf0;
-            --text-main: #172b4d;
-            --sonda-green: #8CBF26;
-        }
+        :root { --bg-body: #f4f5f7; --bg-column: #ebecf0; --sonda-green: #8CBF26; }
         body { background-color: var(--bg-body); font-family: 'Segoe UI', sans-serif; }
-        .board { display: flex; padding: 20px; gap: 15px; height: calc(100vh - 70px); overflow-x: auto; align-items: flex-start; }
-        .column { background: var(--bg-column); width: 320px; min-width: 320px; border-radius: 12px; display: flex; flex-direction: column; max-height: 100%; transition: background 0.2s; }
-        .column.drag-over { background: #dfe1e6; border: 2px dashed #999; }
+        .board { display: flex; padding: 10px 20px; gap: 15px; height: calc(100vh - 160px); overflow-x: auto; align-items: flex-start; }
+        .column { background: var(--bg-column); width: 320px; min-width: 320px; border-radius: 12px; display: flex; flex-direction: column; max-height: 100%; }
         .col-head { font-size: 0.85rem; font-weight: 700; color: #5e6c84; padding: 15px; display: flex; justify-content: space-between; text-transform: uppercase; }
         .col-body { flex-grow: 1; overflow-y: auto; padding: 10px; min-height: 150px; }
-        .card-item { background: white; padding: 16px; margin-bottom: 12px; border-radius: 8px; box-shadow: 0 1px 2px rgba(9, 30, 66, 0.25); cursor: grab; border-left: 5px solid transparent; }
+        .card-item { background: white; padding: 15px; margin-bottom: 12px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); cursor: grab; border-left: 5px solid transparent; }
         .status-aberto { border-left-color: #ffc107; }
         .status-aprovada { border-left-color: var(--sonda-green); }
         .status-execucao { border-left-color: #0dcaf0; }
         .status-finalizada { border-left-color: #212529; }
-        .search-box { max-width: 400px; border-radius: 20px; border: none; padding-left: 35px; }
-        .search-container { position: relative; }
-        .search-container i { position: absolute; left: 12px; top: 10px; color: #aaa; }
+        .stats-bar { background: white; margin: 0 20px; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-around; }
+        .stat-item { text-align: center; border-right: 1px solid #eee; flex: 1; }
+        .stat-item:last-child { border-right: none; }
+        .stat-val { display: block; font-weight: 800; font-size: 1.2rem; color: #172b4d; }
+        .stat-label { font-size: 0.7rem; text-transform: uppercase; color: #6b778c; font-weight: 700; }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark px-4 py-2">
+    <nav class="navbar navbar-dark bg-dark px-4 py-2 mb-3">
         <a class="navbar-brand fw-bold" href="#"><i class="bi bi-kanban me-2 text-success"></i>Fluxo CRM</a>
-        
-        <div class="search-container d-none d-md-block flex-grow-1 mx-4">
-            <i class="bi bi-search"></i>
-            <input type="text" id="searchInput" class="form-control search-box" placeholder="Buscar cliente ou endereço..." onkeyup="filterCards()">
-        </div>
-
+        <input type="text" id="searchInput" class="form-control mx-4 w-25 rounded-pill border-0" placeholder="🔍 Buscar cliente..." onkeyup="filterCards()">
         <div class="ms-auto d-flex gap-2">
-            <a href="/admin" class="btn btn-sm btn-outline-light">Voltar</a>
+            <a href="/admin" class="btn btn-sm btn-outline-light">Painel</a>
             <a href="/orcamento" class="btn btn-sm btn-success fw-bold">+ Nova Obra</a>
         </div>
     </nav>
 
+    <div class="stats-bar mb-3">
+        <div class="stat-item">
+            <span class="stat-label">Em Aberto</span>
+            <span class="stat-val text-warning" id="stat-aberto">R$ 0,00</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Em Execução</span>
+            <span class="stat-val text-info" id="stat-execucao">R$ 0,00</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Finalizado (Mês)</span>
+            <span class="stat-val text-success" id="stat-finalizado">R$ 0,00</span>
+        </div>
+    </div>
+
     <div class="board">
-        <div class="column" id="drop-aberto" ondrop="drop(event, 'Em Aberto')" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+        <div class="column" ondrop="drop(event, 'Em Aberto')" ondragover="allowDrop(event)">
             <div class="col-head">Em Aberto <span class="badge rounded-pill bg-warning text-dark" id="count-aberto">0</span></div>
             <div class="col-body" id="col-aberto"></div>
         </div>
-        <div class="column" id="drop-aprovada" ondrop="drop(event, 'Aprovada')" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+        <div class="column" ondrop="drop(event, 'Aprovada')" ondragover="allowDrop(event)">
             <div class="col-head">Aprovadas <span class="badge rounded-pill bg-success" id="count-aprovada">0</span></div>
             <div class="col-body" id="col-aprovada"></div>
         </div>
-        <div class="column" id="drop-execucao" ondrop="drop(event, 'Em Execução')" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+        <div class="column" ondrop="drop(event, 'Em Execução')" ondragover="allowDrop(event)">
             <div class="col-head">Em Execução <span class="badge rounded-pill bg-info text-dark" id="count-execucao">0</span></div>
             <div class="col-body" id="col-execucao"></div>
         </div>
-        <div class="column" id="drop-finalizada" ondrop="drop(event, 'Finalizada')" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+        <div class="column" ondrop="drop(event, 'Finalizada')" ondragover="allowDrop(event)">
             <div class="col-head">Finalizadas <span class="badge rounded-pill bg-dark" id="count-finalizada">0</span></div>
             <div class="col-body" id="col-finalizada"></div>
         </div>
@@ -67,54 +73,66 @@
         async function carregarBoard() {
             const res = await fetch('/api/propostas');
             const data = await res.json();
-            const columns = { 'Em Aberto': 'col-aberto', 'Aprovada': 'col-aprovada', 'Em Execução': 'col-execucao', 'Finalizada': 'col-finalizada' };
-            Object.values(columns).forEach(id => document.getElementById(id).innerHTML = '');
-            const counts = { 'Em Aberto': 0, 'Aprovada': 0, 'Em Execução': 0, 'Finalizada': 0 };
+            const cols = { 'Em Aberto': 'col-aberto', 'Aprovada': 'col-aprovada', 'Em Execução': 'col-execucao', 'Finalizada': 'col-finalizada' };
+            Object.values(cols).forEach(id => document.getElementById(id).innerHTML = '');
+            
+            let financeiro = { aberto: 0, execucao: 0, finalizado: 0 };
+            let counts = { 'Em Aberto': 0, 'Aprovada': 0, 'Em Execução': 0, 'Finalizada': 0 };
 
-            data.sort((a,b) => b.id - a.id).forEach(p => {
+            data.forEach(p => {
                 const status = p.status || 'Em Aberto';
-                const colId = columns[status];
+                const valor = parseFloat(p.valor_total || 0);
+                
+                // Soma financeiro
+                if(status === 'Em Aberto') financeiro.aberto += valor;
+                if(status === 'Em Execução' || status === 'Aprovada') financeiro.execucao += valor;
+                if(status === 'Finalizada') financeiro.finalizado += valor;
+
                 const card = document.createElement('div');
-                card.className = `card-item status-${colId.split('-')[1]} mb-3`;
+                card.className = `card-item status-${cols[status].split('-')[1]}`;
                 card.draggable = true;
+                card.id = p.id;
                 card.setAttribute('data-search', `${p.cliente} ${p.endereco}`.toLowerCase());
-                card.id = `card-${p.id}`;
                 card.ondragstart = (e) => e.dataTransfer.setData("text", p.id);
                 
                 card.innerHTML = `
                     <div class="d-flex justify-content-between mb-1"><small class="text-muted">#${p.id}</small> <small class="text-muted">${new Date(p.data_criacao).toLocaleDateString()}</small></div>
                     <div class="fw-bold mb-1">${p.cliente.toUpperCase()}</div>
-                    <div class="small text-muted mb-2"><i class="bi bi-geo-alt"></i> ${p.endereco}</div>
+                    <div class="small text-muted mb-2 text-truncate">${p.endereco}</div>
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-success">${parseFloat(p.valor_total).toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}</span>
+                        <span class="fw-bold text-success">${valor.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}</span>
                         <div class="d-flex gap-2">
+                            <a href="https://wa.me/?text=Olá! Segue documento da obra: ${window.location.origin}/reemitir-pdf/${p.id}" target="_blank" class="text-success"><i class="bi bi-whatsapp"></i></a>
                             <a href="/reemitir-pdf/${p.id}" target="_blank" class="text-secondary"><i class="bi bi-file-earmark-pdf"></i></a>
                             ${status !== 'Em Aberto' ? `<a href="/engenharia?id=${p.id}" class="text-primary"><i class="bi bi-bricks"></i></a>` : ''}
                         </div>
                     </div>`;
-                document.getElementById(colId).appendChild(card);
+                document.getElementById(cols[status]).appendChild(card);
                 counts[status]++;
             });
-            ['aberto', 'aprovada', 'execucao', 'finalizada'].forEach(s => {
-                const label = s === 'aberto' ? 'Em Aberto' : s === 'aprovada' ? 'Aprovada' : s === 'execucao' ? 'Em Execução' : 'Finalizada';
-                document.getElementById(`count-${s}`).innerText = counts[label];
-            });
+
+            // Atualiza Dashboard
+            document.getElementById('stat-aberto').innerText = financeiro.aberto.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+            document.getElementById('stat-execucao').innerText = financeiro.execucao.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+            document.getElementById('stat-finalizado').innerText = financeiro.finalizado.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+            
+            // Atualiza Badges
+            document.getElementById('count-aberto').innerText = counts['Em Aberto'];
+            document.getElementById('count-aprovada').innerText = counts['Aprovada'];
+            document.getElementById('count-execucao').innerText = counts['Em Execução'];
+            document.getElementById('count-finalizada').innerText = counts['Finalizada'];
         }
 
         function filterCards() {
             const term = document.getElementById('searchInput').value.toLowerCase();
             document.querySelectorAll('.card-item').forEach(card => {
-                const content = card.getAttribute('data-search');
-                card.style.display = content.includes(term) ? 'block' : 'none';
+                card.style.display = card.getAttribute('data-search').includes(term) ? 'block' : 'none';
             });
         }
 
         function allowDrop(ev) { ev.preventDefault(); }
-        function dragEnter(ev) { ev.currentTarget.classList.add('drag-over'); }
-        function dragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
         async function drop(ev, novoStatus) {
             ev.preventDefault();
-            ev.currentTarget.classList.remove('drag-over');
             const id = ev.dataTransfer.getData("text");
             await fetch(`/api/propostas/${id}/status`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status: novoStatus }) });
             carregarBoard();
