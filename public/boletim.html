@@ -9,54 +9,19 @@
     <style>
         :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
         body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; padding-bottom: 80px; }
-        
-        /* Header Fixo */
-        .header-campo {
-            background-color: var(--sonda-dark);
-            color: white;
-            padding: 12px 15px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        /* Abas de Navegação */
+        .header-campo { background-color: var(--sonda-dark); color: white; padding: 12px 15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .nav-tabs .nav-link { color: #666; border-radius: 0; }
         .nav-tabs .nav-link.active { color: var(--sonda-green); font-weight: bold; border-bottom: 3px solid var(--sonda-green); }
-
-        /* Botões e Cards */
         .card-obra { border: none; border-left: 5px solid var(--sonda-green); margin-bottom: 10px; cursor: pointer; }
         .btn-grande { width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; margin-top: 10px; }
-        
-        /* Inputs de Golpes */
-        .input-golpe {
-            border: 1px solid #ced4da;
-            border-radius: 5px;
-            text-align: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: var(--sonda-dark);
-        }
+        .input-golpe { border: 1px solid #ced4da; border-radius: 5px; text-align: center; font-size: 1.2rem; font-weight: bold; color: var(--sonda-dark); }
         .input-golpe:focus { border-color: var(--sonda-green); box-shadow: 0 0 0 0.2rem rgba(106, 150, 21, 0.25); }
-
-        /* Tabela Limpa */
         .table-custom th { background-color: #e9ecef; font-size: 0.8rem; text-transform: uppercase; }
         .table-custom td { vertical-align: middle; padding: 8px 4px; }
         .prof-cell { font-weight: bold; color: var(--sonda-green); }
-
-        /* Modal Overlay */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 2000; display: none;
-            justify-content: center; align-items: end;
-        }
-        .modal-content-bottom {
-            background: white; width: 100%; border-radius: 20px 20px 0 0;
-            padding: 20px; animation: slideUp 0.3s;
-        }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; display: none; justify-content: center; align-items: end; }
+        .modal-content-bottom { background: white; width: 100%; border-radius: 20px 20px 0 0; padding: 20px; animation: slideUp 0.3s; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-
         .tela { display: none; }
         .tela.ativa { display: block; }
     </style>
@@ -66,7 +31,7 @@
     <div id="tela-obras" class="tela ativa">
         <div class="header-campo d-flex justify-content-between align-items-center">
             <span class="fw-bold"><i class="bi bi-cone-striped me-2"></i>OBRAS</span>
-            <small class="text-white-50">v2.2</small>
+            <small class="text-white-50">v2.3 (Fix)</small>
         </div>
         <div class="container mt-3" id="lista-obras">
             <div class="text-center py-5"><div class="spinner-border text-success"></div></div>
@@ -98,12 +63,8 @@
         </div>
 
         <ul class="nav nav-tabs nav-fill bg-white shadow-sm" id="abasFuro">
-            <li class="nav-item">
-                <a class="nav-link active" id="tab-dados" href="#" onclick="alternarAba('dados')">DADOS / GOLPES</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" id="tab-fotos" href="#" onclick="alternarAba('fotos')">FOTOS</a>
-            </li>
+            <li class="nav-item"><a class="nav-link active" id="tab-dados" href="#" onclick="alternarAba('dados')">DADOS / GOLPES</a></li>
+            <li class="nav-item"><a class="nav-link" id="tab-fotos" href="#" onclick="alternarAba('fotos')">FOTOS</a></li>
         </ul>
 
         <div id="conteudo-dados" class="container mt-3">
@@ -138,13 +99,13 @@
                 <h6 class="text-muted mt-2">Adicionar Foto</h6>
                 <p class="small text-muted mb-3">Sondas, Amostras ou Local.</p>
                 
-                <input type="file" id="inputCamera" accept="image/*" capture="environment" class="d-none" onchange="processarFoto()">
+                <input type="file" id="inputCamera" accept="image/*" class="d-none" onchange="processarFoto()">
+                
                 <button class="btn btn-primary w-100 fw-bold" onclick="document.getElementById('inputCamera').click()">
-                    <i class="bi bi-camera-fill me-2"></i>ABRIR CÂMERA
+                    <i class="bi bi-camera-fill me-2"></i>ABRIR CÂMERA / GALERIA
                 </button>
             </div>
-            <div id="galeria-fotos" class="row g-3">
-                </div>
+            <div id="galeria-fotos" class="row g-3"></div>
         </div>
     </div>
 
@@ -152,13 +113,16 @@
         <div class="modal-content-bottom">
             <h5 class="fw-bold mb-3"><i class="bi bi-clipboard-data"></i> Dados do Furo</h5>
             
-            <div class="mb-3">
-                <label class="small fw-bold">Nível D'água (m)</label>
-                <div class="input-group">
-                    <span class="input-group-text">Inicial</span>
-                    <input type="number" id="na_ini" class="form-control" placeholder="Ex: 14.50">
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <label class="small fw-bold">Nível Inicial</label>
+                    <input type="number" id="na_ini" class="form-control" placeholder="Ex: 12.35" step="0.01">
                 </div>
-                <div class="form-text text-muted">Deixe em branco se for seco.</div>
+                <div class="col-6">
+                    <label class="small fw-bold">Final (24h)</label>
+                    <input type="number" id="na_fim" class="form-control" placeholder="Ex: 12.40" step="0.01">
+                </div>
+                <div class="col-12 form-text text-muted small">Deixe em branco se for seco.</div>
             </div>
 
             <div class="row g-2 mb-4">
@@ -186,19 +150,14 @@
     <script>
         let obraId = null; let furoId = null; let nextProf = 1.0;
 
-        // --- NAVEGAÇÃO ENTRE ABAS ---
         function alternarAba(aba) {
             document.getElementById('conteudo-dados').style.display = aba === 'dados' ? 'block' : 'none';
             document.getElementById('conteudo-fotos').style.display = aba === 'fotos' ? 'block' : 'none';
-            
-            // Estilo das abas
             document.getElementById('tab-dados').classList.toggle('active', aba === 'dados');
             document.getElementById('tab-fotos').classList.toggle('active', aba === 'fotos');
-            
             if(aba === 'fotos') carregarFotos();
         }
 
-        // --- LÓGICA DE FOTOS (COMPRESSÃO) ---
         function processarFoto() {
             const input = document.getElementById('inputCamera');
             if (input.files && input.files[0]) {
@@ -211,7 +170,6 @@
                     const img = new Image();
                     img.src = e.target.result;
                     img.onload = function() {
-                        // Comprimir para 800px (Leve para o Banco)
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
                         const maxWidth = 800;
@@ -219,8 +177,6 @@
                         canvas.width = maxWidth;
                         canvas.height = img.height * scale;
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        
-                        // JPEG qualidade 70%
                         const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                         enviarFotoParaBanco(dataUrl, legenda);
                     };
@@ -245,31 +201,16 @@
                 const div = document.getElementById('galeria-fotos');
                 div.innerHTML = '';
                 if(data.length === 0) div.innerHTML = '<p class="text-center text-muted col-12 my-4">Nenhuma foto neste furo.</p>';
-                
                 data.forEach(f => {
-                    div.innerHTML += `
-                        <div class="col-6">
-                            <div class="card shadow-sm h-100">
-                                <div class="card-body p-2 text-center bg-light d-flex flex-column justify-content-center" style="min-height: 100px;">
-                                    <i class="bi bi-image fs-1 text-success mb-2"></i>
-                                    <small class="fw-bold d-block text-truncate w-100">${f.legenda}</small>
-                                    <small class="text-muted" style="font-size:0.7rem">${new Date(f.data_upload).toLocaleDateString()}</small>
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                    div.innerHTML += `<div class="col-6"><div class="card shadow-sm h-100"><div class="card-body p-2 text-center bg-light d-flex flex-column justify-content-center" style="min-height: 100px;"><i class="bi bi-image fs-1 text-success mb-2"></i><small class="fw-bold d-block text-truncate w-100">${f.legenda}</small><small class="text-muted" style="font-size:0.7rem">${new Date(f.data_upload).toLocaleDateString()}</small></div></div></div>`;
                 });
             });
         }
 
-        // --- FUNÇÕES DE DADOS (MANTIDAS) ---
         function carregarObras() {
             fetch('/api/propostas').then(r=>r.json()).then(d => {
-                const el = document.getElementById('lista-obras');
-                el.innerHTML = '';
-                d.forEach(o => {
-                    el.innerHTML += `<div class="card card-obra shadow-sm" onclick="abrirObra(${o.id}, '${o.cliente}')"><div class="card-body py-3"><div class="fw-bold text-dark">${o.cliente}</div><div class="small text-muted">${o.endereco}</div></div></div>`;
-                });
+                const el = document.getElementById('lista-obras'); el.innerHTML = '';
+                d.forEach(o => { el.innerHTML += `<div class="card card-obra shadow-sm" onclick="abrirObra(${o.id}, '${o.cliente}')"><div class="card-body py-3"><div class="fw-bold text-dark">${o.cliente}</div><div class="small text-muted">${o.endereco}</div></div></div>`; });
             });
         }
         function abrirObra(id, nome) { obraId = id; document.getElementById('titulo-obra').innerText = nome; mostrar('tela-furos'); carregarFuros(); }
@@ -296,13 +237,14 @@
         }
         function addLinhaTabela(a) { document.getElementById('tbody-amostras').innerHTML = `<tr><td class="prof-cell">${parseFloat(a.profundidade_ini).toFixed(2)}</td><td>${a.golpe_1}</td><td>${a.golpe_2}</td><td>${a.golpe_3}</td><td class="text-start small text-muted">${a.tipo_solo || '-'}</td></tr>` + document.getElementById('tbody-amostras').innerHTML; }
         
-        // --- MODAL DADOS TÉCNICOS ---
         function abrirModalDados() { document.getElementById('modal-dados').style.display = 'flex'; }
         function fecharModal(e) { if(e.target.id === 'modal-dados') document.getElementById('modal-dados').style.display = 'none'; }
+        
+        // --- FUNÇÃO ATUALIZADA PARA SALVAR NIVEL FINAL ---
         function salvarDadosFuro() { 
             const dados = { 
                 nivel_agua_inicial: document.getElementById('na_ini').value || null, 
-                nivel_agua_final: null, 
+                nivel_agua_final: document.getElementById('na_fim').value || null, 
                 data_inicio: document.getElementById('dt_ini').value || null, 
                 data_termino: document.getElementById('dt_fim').value || null, 
                 coordenadas: document.getElementById('coords').value || '' 
