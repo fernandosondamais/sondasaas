@@ -15,14 +15,19 @@ app.use(express.static('public'));
 global.adminLogado = false; 
 const SENHA_MESTRA = process.env.SENHA_MESTRA || 'admin123';
 
-// CORES PADRÃO ABGE/NBR
+// CORES E PADRÕES TÉCNICOS
 const C = { 
     GRID: '#d0d0d0', 
     BORDER: '#000000',
-    GRAPH_LINE: '#cc0000', // Vermelho NSPT
-    WATER: '#0066cc',      // Azul Nível D'água
+    GRAPH_LINE: '#ff0000',
+    WATER: '#0000ff',
     TEXT: '#000000',
-    HEADER_BG: '#f0f0f0'
+    HEADER_BG: '#d9d9d9', // Cinza padrão engenharia
+    // Cores de Fundo Litologia
+    BG_ARGILA: '#e6b8af', // Rosado
+    BG_AREIA: '#fff2cc',  // Amarelo
+    BG_SILTE: '#d9ead3',  // Verde Claro
+    BG_ATERRO: '#cccccc'  // Cinza
 };
 
 // --- ROTAS ---
@@ -43,7 +48,7 @@ app.get('/engenharia', checkAuth, (req, res) => res.sendFile(path.join(__dirname
 app.get('/logout', (req, res) => { global.adminLogado = false; res.redirect('/login'); });
 app.post('/api/login', (req, res) => { if (req.body.senha === SENHA_MESTRA) { global.adminLogado = true; res.sendStatus(200); } else { res.sendStatus(401); } });
 
-// --- API (Mantida) ---
+// --- API ---
 app.get('/api/engenharia/:id', async (req, res) => {
     if (!global.adminLogado) return res.status(403).send('Acesso Negado');
     try {
@@ -69,7 +74,58 @@ app.get('/api/boletim/fotos/:furoId', async (req, res) => { try { const r = awai
 app.post('/api/boletim/fotos', async (req, res) => { const {furo_id, imagem_base64, legenda} = req.body; try { await pool.query(`INSERT INTO fotos (furo_id, imagem, legenda) VALUES ($1, $2, $3)`, [furo_id, imagem_base64, legenda]); res.sendStatus(200); } catch (e) { res.status(500).json(e); } });
 app.get('/api/foto-full/:id', async (req, res) => { try { const r = await pool.query('SELECT imagem FROM fotos WHERE id = $1', [req.params.id]); if(r.rows.length > 0) { const img = Buffer.from(r.rows[0].imagem.split(",")[1], 'base64'); res.writeHead(200, {'Content-Type': 'image/jpeg', 'Content-Length': img.length}); res.end(img); } else res.status(404).send('Not found'); } catch(e) { res.status(500).send(e); } });
 
-// --- NOVO MOTOR GRÁFICO (NORMA ABGE/NBR) ---
+// --- FUNÇÃO DE HACHURAS (SIMBOLOGIA GEOLÓGICA) ---
+function drawLithology(doc, x, y, w, h, tipoSolo) {
+    const solo = (tipoSolo || '').toLowerCase();
+    
+    doc.save().rect(x, y, w, h).clip(); // Corta o desenho para ficar dentro da caixa
+
+    if (solo.includes('aterro')) {
+        // ATERRO: Cinza + Xadrez
+        doc.fillColor(C.BG_ATERRO).rect(x, y, w, h).fill();
+        doc.strokeColor('#999999').lineWidth(0.5);
+        for(let i = -w; i < h; i+=5) {
+            doc.moveTo(x, y+i).lineTo(x+w, y+i+w).stroke(); // Diagonal 1
+            doc.moveTo(x+w, y+i).lineTo(x, y+i+w).stroke(); // Diagonal 2
+        }
+    } 
+    else if (solo.includes('areia')) {
+        // AREIA: Amarelo + Pontos (Dots)
+        doc.fillColor(C.BG_AREIA).rect(x, y, w, h).fill();
+        doc.fillColor('#d4a017'); // Ouro Escuro
+        for(let i=0; i<30; i++) { // Densidade de pontos
+            const randX = x + Math.random() * w;
+            const randY = y + Math.random() * h;
+            doc.circle(randX, randY, 0.8).fill();
+        }
+    } 
+    else if (solo.includes('argila')) {
+        // ARGILA: Vermelho/Rosa + Traços Horizontais
+        doc.fillColor(C.BG_ARGILA).rect(x, y, w, h).fill();
+        doc.strokeColor('#cc0000').lineWidth(0.5); // Vermelho escuro
+        for(let i=3; i<h; i+=4) { // Linhas a cada 4px
+            // Pequenos traços horizontais aleatórios
+            const dashW = 5 + Math.random() * 10;
+            const dashX = x + Math.random() * (w - dashW);
+            doc.moveTo(dashX, y+i).lineTo(dashX+dashW, y+i).stroke();
+        }
+    } 
+    else if (solo.includes('silte')) {
+        // SILTE: Verde + Diagonal Fina
+        doc.fillColor(C.BG_SILTE).rect(x, y, w, h).fill();
+        doc.strokeColor('#6aa84f').lineWidth(0.3);
+        for(let i = -w; i < h; i+=6) {
+            doc.moveTo(x, y+i).lineTo(x+w, y+i+w).stroke();
+        }
+    } else {
+        // Solo Indefinido (Branco)
+        doc.fillColor('white').rect(x, y, w, h).fill();
+    }
+
+    doc.restore();
+}
+
+// --- RELATÓRIO TÉCNICO (PADRÃO RIGOROSO NBR/ABGE) ---
 app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
     if (!global.adminLogado) return res.redirect('/login');
     try {
@@ -81,12 +137,12 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
 
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Relatorio_Tecnico_${proposta.id}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Relatorio_Engenharia_${proposta.id}.pdf"`);
         doc.pipe(res);
 
         const logoPath = path.join(__dirname, 'public', 'logo.png');
 
-        // FUNÇÃO DE DESENHO DE PERFIL (CAD STYLE)
+        // LOOP DE FUROS (CADA UM GERA UM PERFIL)
         for (let i = 0; i < furos.length; i++) {
             const furo = furos[i];
             const amosRes = await pool.query('SELECT * FROM amostras WHERE furo_id = $1 ORDER BY profundidade_ini ASC', [furo.id]);
@@ -95,98 +151,90 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
 
             doc.addPage();
 
-            // --- CONFIGURAÇÃO DE LAYOUT (COORDENADAS X) ---
-            // Tabela ABGE Padrão
+            // COORDENADAS X (AJUSTE FINO)
             const X = {
-                PROF: 30,       // Profundidade
-                AMOSTRA: 60,    // Nº Amostra
-                GOLPES: 90,     // 1º, 2º, 3º
-                NSPT: 140,      // N
-                GRAF_INI: 160,  // Início do Gráfico
-                GRAF_FIM: 280,  // Fim do Gráfico
-                PERFIL: 290,    // Coluna visual (cor)
-                DESC: 310,      // Descrição
+                PROF: 30,       
+                AMOSTRA: 60,    
+                GOLPES: 90,     
+                NSPT: 135,      
+                GRAF_INI: 155,  // Largura 115
+                GRAF_FIM: 270,  
+                PERFIL: 280,    // Onde vai a hachura (Largura 25)
+                PERFIL_FIM: 305,
+                DESC: 310,      
                 FIM: 570
             };
-            const ESCALA_VERTICAL = 30; // 30 pontos = 1 metro (Escala Visual)
+            const ESCALA = 30; // 30px = 1 metro
 
-            // --- 1. CABEÇALHO TÉCNICO COMPLETO ---
-            const drawHeaderBox = (y, h) => { doc.rect(20, y, 555, h).stroke(); };
-            const drawLabel = (txt, x, y) => doc.font('Helvetica-Bold').fontSize(7).text(txt, x, y);
-            const drawValue = (txt, x, y) => doc.font('Helvetica').fontSize(8).text(txt || '-', x, y);
-
-            // Linha 1: Título e Logo
-            doc.rect(20, 20, 555, 50).stroke();
+            // --- CABEÇALHO TÉCNICO (BOX) ---
+            const drawBox = (y, h, fill) => { 
+                doc.rect(20, y, 555, h);
+                if(fill) doc.fill(fill);
+                doc.stroke();
+            };
+            
+            // 1. Logo e Título
+            drawBox(20, 50, 'white');
             if (fs.existsSync(logoPath)) doc.image(logoPath, 25, 25, { width: 80 });
-            doc.font('Helvetica-Bold').fontSize(16).text('PERFIL INDIVIDUAL DE SONDAGEM A PERCUSSÃO', 120, 30);
-            doc.fontSize(10).text('NBR 6484:2020', 120, 50);
+            doc.fillColor('black').font('Helvetica-Bold').fontSize(14).text('PERFIL INDIVIDUAL DE SONDAGEM SPT', 130, 32);
+            doc.fontSize(9).text('NBR 6484:2020', 130, 50);
 
-            // Linha 2: Dados da Obra
+            // 2. Dados Gerais
             let yH = 70;
-            drawHeaderBox(yH, 35);
-            drawLabel('CLIENTE:', 25, yH+5); drawValue(proposta.cliente, 70, yH+5);
-            drawLabel('OBRA/LOCAL:', 25, yH+18); drawValue(proposta.endereco, 90, yH+18);
+            drawBox(yH, 35, 'white');
+            doc.fontSize(7).font('Helvetica-Bold');
+            doc.text('CLIENTE:', 25, yH+5); doc.font('Helvetica').text(proposta.cliente, 70, yH+5);
+            doc.font('Helvetica-Bold').text('OBRA:', 25, yH+18); doc.font('Helvetica').text(proposta.endereco, 70, yH+18);
             
-            drawLabel('FURO Nº:', 400, yH+5); doc.fontSize(12).text(furo.nome_furo, 450, yH+3);
-            drawLabel('DATA:', 400, yH+18); drawValue(furo.data_inicio ? new Date(furo.data_inicio).toLocaleDateString() : '-', 450, yH+18);
+            doc.font('Helvetica-Bold').text('FURO:', 450, yH+5); doc.fontSize(12).text(furo.nome_furo, 490, yH+3);
+            doc.fontSize(7).font('Helvetica-Bold').text('DATA:', 450, yH+18); doc.font('Helvetica').text(furo.data_inicio ? new Date(furo.data_inicio).toLocaleDateString() : '-', 490, yH+18);
 
-            // Linha 3: Dados Técnicos (Cota, NA, Coord)
+            // 3. Dados Técnicos (Água, Cota)
             yH = 105;
-            drawHeaderBox(yH, 25);
-            drawLabel('COTA BOCA:', 25, yH+5); drawValue(furo.cota || 'Relativa', 25, yH+15);
+            drawBox(yH, 25, 'white');
             
-            // Nível D'água (Azul para destaque)
-            drawLabel('NÍVEL D\'ÁGUA (NA):', 120, yH+5); 
-            let txtNa = `INI: ${furo.nivel_agua_inicial || 'Seco'}m`;
-            if(furo.nivel_agua_final) txtNa += ` | FIM: ${furo.nivel_agua_final}m`;
-            doc.fillColor(C.WATER).font('Helvetica-Bold').text(txtNa, 120, yH+15).fillColor(C.BORDER);
+            doc.font('Helvetica-Bold').text('COTA:', 25, yH+10); doc.font('Helvetica').text(furo.cota || 'Relativa', 55, yH+10);
+            
+            doc.font('Helvetica-Bold').text('NÍVEL D\'ÁGUA (NA):', 150, yH+10);
+            const naIni = furo.nivel_agua_inicial ? `${furo.nivel_agua_inicial}m` : 'Seco';
+            const naFim = furo.nivel_agua_final ? `${furo.nivel_agua_final}m` : '-';
+            doc.fillColor(C.WATER).font('Helvetica-Bold').text(`Inicial: ${naIni}  |  24h: ${naFim}`, 235, yH+10);
+            
+            doc.fillColor('black').font('Helvetica-Bold').text('COORD:', 450, yH+10); doc.font('Helvetica').text(furo.coordenadas || '-', 490, yH+10);
 
-            drawLabel('COORDENADAS:', 300, yH+5); drawValue(furo.coordenadas || 'Não inf.', 300, yH+15);
-            drawLabel('EXECUTOR:', 450, yH+5); drawValue(furo.sondador || 'SondaMais', 450, yH+15);
-
-            // --- 2. CABEÇALHOS DA TABELA (BOX VERDE) ---
+            // 4. Cabeçalho Tabela (Cinza)
             yH = 130;
-            doc.rect(20, yH, 555, 25).fill(C.HEADER_BG).stroke();
-            doc.fillColor(C.TEXT).font('Helvetica-Bold').fontSize(6);
+            drawBox(yH, 25, C.HEADER_BG);
+            doc.fillColor('black').font('Helvetica-Bold').fontSize(6);
             
-            const centerText = (txt, x, w, y) => doc.text(txt, x, y, {width: w, align: 'center'});
+            const center = (t, x, w) => doc.text(t, x, yH+8, {width: w, align: 'center'});
+            center('PROF\n(m)', X.PROF, 30);
+            center('AMOSTRA\nNº', X.AMOSTRA, 30);
+            center('GOLPES\n30cm', X.GOLPES, 45);
+            center('N\nSPT', X.NSPT, 20);
             
-            centerText('PROF\n(m)', X.PROF, 30, yH+8);
-            centerText('AMOSTRA\nNº', X.AMOSTRA, 30, yH+8);
-            centerText('GOLPES\n30cm', X.GOLPES, 50, yH+8);
-            centerText('NSPT\n(N)', X.NSPT, 20, yH+8);
-            
-            // Cabeçalho do Gráfico
-            centerText('RESISTÊNCIA A PENETRAÇÃO (Golpes)', X.GRAF_INI, X.GRAF_FIM - X.GRAF_INI, yH+5);
-            // Régua do gráfico (0 10 20 30 40 50)
+            // Gráfico
+            center('PENETRAÇÃO (Golpes)', X.GRAF_INI, X.GRAF_FIM - X.GRAF_INI);
             doc.fontSize(5);
-            for(let k=0; k<=5; k++) {
-                let gx = X.GRAF_INI + (k * (X.GRAF_FIM - X.GRAF_INI)/5);
-                doc.text(k*10, gx-5, yH+16);
-            }
+            for(let k=0; k<=5; k++) doc.text(k*10, X.GRAF_INI + (k*(X.GRAF_FIM-X.GRAF_INI)/5) - 3, yH+18);
 
-            centerText('PERFIL', X.PERFIL, 20, yH+10);
-            doc.text('DESCRIÇÃO DO MATERIAL', X.DESC+5, yH+10);
+            doc.fontSize(6).text('PERFIL', X.PERFIL, yH+10, {width: 25, align: 'center'});
+            doc.text('DESCRIÇÃO ESTRATIGRÁFICA', X.DESC+5, yH+10);
 
-            // --- 3. LOOP DE DADOS (DESENHO VETORIAL) ---
+            // --- LOOP DE DADOS ---
             let currentY = 155;
             let startGraphY = currentY;
-            
-            // Arrays para polilinha do gráfico
-            let polylinePoints = []; 
+            let polylinePoints = [];
 
-            // Loop de Amostras (Metro a Metro)
             for (let am of amostras) {
-                // Checar quebra de página
+                // Paginação
                 if (currentY > 750) {
-                    // Desenha o gráfico da página atual antes de quebrar
-                    drawGraphOverlay(doc, polylinePoints);
-                    polylinePoints = []; // Reseta para nova página
+                    drawGraphLines(doc, startGraphY, currentY, X);
+                    drawGraphTrace(doc, polylinePoints);
+                    doc.rect(20, 155, 555, currentY - 155).stroke(); // Fecha borda da pág anterior
                     
-                    doc.addPage();
-                    currentY = 50; 
-                    startGraphY = currentY;
-                    doc.font('Helvetica-Bold').fontSize(10).text(`Continuação ${furo.nome_furo}`, 20, 30);
+                    doc.addPage(); currentY = 50; startGraphY = currentY; polylinePoints = [];
+                    doc.font('Helvetica-Bold').fontSize(10).fillColor('black').text(`Continuação ${furo.nome_furo}`, 20, 30);
                 }
 
                 const prof = parseFloat(am.profundidade_ini);
@@ -194,73 +242,61 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
                 const g2 = am.golpe_2 || '';
                 const g3 = am.golpe_3 || '';
                 const nspt = (parseInt(g2)||0) + (parseInt(g3)||0);
-                
-                // 1. Linhas de Grade Horizontal (Fina)
-                doc.save().strokeColor(C.GRID).lineWidth(0.5)
-                   .moveTo(20, currentY + ESCALA_VERTICAL).lineTo(575, currentY + ESCALA_VERTICAL).stroke().restore();
 
-                // 2. Textos
-                doc.fillColor(C.TEXT).font('Helvetica').fontSize(8);
-                // Prof
-                doc.text(prof.toFixed(0), X.PROF, currentY+10, {width: 30, align:'center'});
-                // Amostra
-                doc.text(Math.ceil(prof), X.AMOSTRA, currentY+10, {width: 30, align:'center'});
-                // Golpes
-                doc.fontSize(7).text(`${g1} / ${g2} / ${g3}`, X.GOLPES, currentY+10, {width: 50, align:'center'});
-                // NSPT
-                doc.font('Helvetica-Bold').fontSize(9).text(nspt > 0 ? nspt : '-', X.NSPT, currentY+10, {width: 20, align:'center'});
+                // Grade Horizontal Fina
+                doc.save().strokeColor(C.GRID).lineWidth(0.5).moveTo(20, currentY+ESCALA).lineTo(575, currentY+ESCALA).stroke().restore();
 
-                // 3. Coluna Visual (Cor do Solo)
-                let corSolo = '#ffffff';
-                const desc = (am.tipo_solo || '').toLowerCase();
-                if(desc.includes('argila')) corSolo = '#e6b8af'; // Avermelhado
-                if(desc.includes('areia')) corSolo = '#fff2cc';  // Amarelo
-                if(desc.includes('silte')) corSolo = '#d9ead3';  // Verde claro
-                if(desc.includes('aterro')) corSolo = '#cccccc'; // Cinza
-                
-                doc.save().rect(X.PERFIL, currentY, X.DESC - X.PERFIL, ESCALA_VERTICAL).fill(corSolo).stroke().restore();
+                // Textos
+                doc.fillColor('black').font('Helvetica').fontSize(8);
+                center(prof.toFixed(0), X.PROF, 30, currentY+10);
+                center(Math.ceil(prof), X.AMOSTRA, 30, currentY+10);
+                doc.fontSize(7);
+                center(`${g1} / ${g2} / ${g3}`, X.GOLPES, 45, currentY+10);
+                doc.font('Helvetica-Bold').fontSize(9);
+                center(nspt > 0 ? nspt : '-', X.NSPT, 20, currentY+10);
 
-                // 4. Descrição
-                doc.font('Helvetica').fontSize(7).fillColor(C.TEXT)
-                   .text(am.tipo_solo || '', X.DESC + 5, currentY + 8, {width: 250, align: 'left'});
+                // --- HACHURA (SIMBOLOGIA VISUAL) ---
+                drawLithology(doc, X.PERFIL, currentY, X.PERFIL_FIM - X.PERFIL, ESCALA, am.tipo_solo);
 
-                // 5. Preparar Ponto do Gráfico
-                let graphWidth = X.GRAF_FIM - X.GRAF_INI;
+                // Descrição
+                doc.fillColor('black').font('Helvetica').fontSize(7);
+                doc.text(am.tipo_solo || '', X.DESC+5, currentY+8, {width: 250, align:'left'});
+
+                // Ponto Gráfico
                 let val = nspt > 50 ? 50 : nspt;
-                let px = X.GRAF_INI + ((val / 50) * graphWidth);
-                let py = currentY + (ESCALA_VERTICAL / 2); // Meio do metro
-                if (nspt > 0) polylinePoints.push([px, py]);
+                if (val > 0) {
+                    let px = X.GRAF_INI + ((val/50) * (X.GRAF_FIM - X.GRAF_INI));
+                    let py = currentY + (ESCALA/2);
+                    polylinePoints.push([px, py]);
+                }
 
-                // 6. Desenhar Nível D'água Visual (Se coincidir com a profundidade)
+                // Desenho do Nível D'água (Linha Azul)
                 if (furo.nivel_agua_final && Math.abs(parseFloat(furo.nivel_agua_final) - prof) < 0.5) {
-                    let yW = currentY + ((parseFloat(furo.nivel_agua_final) - Math.floor(prof)) * ESCALA_VERTICAL);
-                    doc.save().strokeColor(C.WATER).lineWidth(2)
+                    let yW = currentY + ((parseFloat(furo.nivel_agua_final) - Math.floor(prof)) * ESCALA);
+                    doc.save().strokeColor(C.WATER).lineWidth(1.5).dash(3, {space: 2})
                        .moveTo(X.GRAF_INI, yW).lineTo(X.GRAF_FIM, yW).stroke();
-                    // Triângulo
-                    doc.polygon([X.GRAF_INI-5, yW-5], [X.GRAF_INI+5, yW-5], [X.GRAF_INI, yW]).fill(C.WATER);
                     doc.restore();
                 }
 
-                currentY += ESCALA_VERTICAL;
+                currentY += ESCALA;
             }
 
-            // Desenha o gráfico sobreposto (para ficar por cima das linhas)
-            drawGraphOverlay(doc, polylinePoints, X, startGraphY, currentY);
+            // Desenha o gráfico final
+            drawGraphLines(doc, startGraphY, currentY, X);
+            drawGraphTrace(doc, polylinePoints);
 
-            // Borda Externa Final da Tabela
+            // Borda Externa e Linhas Verticais
             doc.rect(20, 155, 555, currentY - 155).stroke();
-            
-            // Linhas Verticais Estruturais (Pretas)
-            doc.save().strokeColor(C.BORDER).lineWidth(0.5);
-            [X.AMOSTRA, X.GOLPES, X.NSPT, X.GRAF_INI, X.GRAF_FIM, X.PERFIL, X.DESC].forEach(x => {
+            doc.save().strokeColor('black').lineWidth(0.5);
+            [X.AMOSTRA, X.GOLPES, X.NSPT, X.GRAF_INI, X.GRAF_FIM, X.PERFIL, X.PERFIL_FIM, X.DESC].forEach(x => {
                 doc.moveTo(x, 155).lineTo(x, currentY).stroke();
             });
             doc.restore();
 
-            // --- FOTOS ---
+            // PÁGINA FOTOS
             if(fotosRes.rows.length > 0) {
                 doc.addPage();
-                doc.font('Helvetica-Bold').fontSize(14).text(`ANEXO FOTOGRÁFICO - ${furo.nome_furo}`, {align:'center'});
+                doc.font('Helvetica-Bold').fontSize(14).text(`REGISTRO FOTOGRÁFICO - ${furo.nome_furo}`, {align:'center'});
                 let yPos = 80;
                 for(let foto of fotosRes.rows) {
                     try {
@@ -274,35 +310,26 @@ app.get('/gerar-relatorio-tecnico/:id', async (req, res) => {
             }
         }
         doc.end();
-    } catch (err) { console.error(err); res.status(500).send('Erro no relatório: '+err.message); }
+    } catch (err) { console.error(err); res.status(500).send('Erro: ' + err.message); }
 });
 
-// Função Auxiliar para Desenhar o Gráfico (Grade + Linha Vermelha)
-function drawGraphOverlay(doc, points, X, yStart, yEnd) {
-    if(!X) return; 
-    
-    // 1. Desenhar Linhas Verticais da Grade do Gráfico (0,10,20...)
+function drawGraphLines(doc, yStart, yEnd, X) {
     doc.save().strokeColor(C.GRID).lineWidth(0.5).dash(2, {space: 2});
-    for(let k=1; k<5; k++) { // Linhas internas (10, 20, 30, 40)
+    for(let k=1; k<5; k++) {
         let gx = X.GRAF_INI + (k * (X.GRAF_FIM - X.GRAF_INI)/5);
         doc.moveTo(gx, yStart).lineTo(gx, yEnd).stroke();
     }
     doc.restore();
+}
 
-    // 2. Desenhar Polilinha Vermelha
+function drawGraphTrace(doc, points) {
     if (points.length > 1) {
         doc.save().strokeColor(C.GRAPH_LINE).lineWidth(2).lineJoin('round');
         doc.moveTo(points[0][0], points[0][1]);
-        for(let i=1; i<points.length; i++) {
-            doc.lineTo(points[i][0], points[i][1]);
-        }
+        for(let i=1; i<points.length; i++) doc.lineTo(points[i][0], points[i][1]);
         doc.stroke();
-        
-        // 3. Pontos (Círculos)
         doc.fillColor(C.GRAPH_LINE);
-        points.forEach(p => {
-            doc.circle(p[0], p[1], 2).fill();
-        });
+        points.forEach(p => doc.circle(p[0], p[1], 1.5).fill());
         doc.restore();
     }
 }
