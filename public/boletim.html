@@ -3,41 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Boletim SondaSaaS</title>
+    <title>Boletim Campo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        :root { --sonda-green: #8CBF26; --sonda-dark: #444444; }
-        body { background-color: #f0f2f5; font-family: sans-serif; padding-bottom: 100px; }
-        .header-app { background: var(--sonda-dark); color: white; padding: 15px; position: sticky; top: 0; z-index: 999; }
-        
-        /* Cartões Grandes para Dedo */
-        .card-obra { border-left: 6px solid var(--sonda-green); margin-bottom: 12px; cursor: pointer; active: scale(0.98); }
-        .btn-zao { height: 55px; font-size: 1.1rem; font-weight: bold; width: 100%; border-radius: 12px; margin-top: 10px; }
-        
-        /* Inputs Gigantes */
-        .input-gigante { height: 60px; font-size: 1.5rem; text-align: center; font-weight: bold; border: 2px solid #ddd; }
-        .input-gigante:focus { border-color: var(--sonda-green); box-shadow: none; }
-        
-        /* Botões de Solo Rápido */
-        .tag-solo { border: 1px solid #ccc; padding: 10px 15px; border-radius: 20px; background: white; margin: 3px; display: inline-block; cursor: pointer; font-weight: 500; font-size: 0.9rem; }
-        .tag-solo.active { background: var(--sonda-green); color: white; border-color: var(--sonda-green); }
-
+        body { background: #f8f9fa; padding-bottom: 80px; font-family: sans-serif; }
+        .header-app { background: #333; color: white; padding: 15px; position: sticky; top: 0; z-index: 1000; }
+        .btn-big { height: 55px; font-weight: bold; font-size: 1.1rem; width: 100%; border-radius: 10px; margin-bottom: 10px; }
+        .card-obra { border-left: 5px solid #8CBF26; margin-bottom: 10px; cursor: pointer; }
+        .input-big { height: 60px; font-size: 1.5rem; text-align: center; font-weight: bold; }
+        .tag-solo { background: white; border: 1px solid #ccc; padding: 8px 12px; border-radius: 20px; margin: 3px; display: inline-block; cursor: pointer; }
+        .tag-solo:active { background: #8CBF26; color: white; }
         .tela { display: none; }
-        .tela.ativa { display: block; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .tela.ativa { display: block; }
     </style>
 </head>
 <body>
 
     <div id="tela-obras" class="tela ativa">
         <div class="header-app d-flex justify-content-between">
-            <span class="fw-bold fs-5">Minhas Obras</span>
-            <button onclick="carregarObras()" class="btn btn-sm btn-outline-light"><i class="bi bi-arrow-clockwise"></i></button>
+            <span class="fw-bold">Minhas Obras</span>
+            <button class="btn btn-sm btn-outline-light" onclick="carregarObras()"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
-        <div class="container mt-3" id="lista-obras">
-            <p class="text-center mt-5 text-muted">Carregando obras...</p>
-        </div>
+        <div class="container mt-3" id="lista-obras">Carregando...</div>
     </div>
 
     <div id="tela-furos" class="tela">
@@ -46,80 +34,69 @@
             <h6 class="m-0 text-truncate fw-bold" id="titulo-obra">...</h6>
         </div>
         <div class="container mt-3">
-            <button class="btn btn-success btn-zao shadow" onclick="abrirNovoFuro()">
-                <i class="bi bi-plus-circle me-2"></i>NOVO FURO
-            </button>
-            <hr>
+            <button class="btn btn-success btn-big shadow" onclick="abrirNovoFuro()">+ NOVO FURO</button>
             <div id="lista-furos"></div>
         </div>
     </div>
 
     <div id="tela-coleta" class="tela">
         <div class="header-app d-flex justify-content-between align-items-center">
-            <div class="d-flex gap-3 align-items-center">
+            <div class="d-flex align-items-center gap-2">
                 <i class="bi bi-arrow-left fs-4" onclick="voltar('tela-furos')"></i>
                 <div>
-                    <div class="fw-bold" id="titulo-furo">SP-01</div>
-                    <small id="prof-atual" class="text-warning">Próx: 1.0m</small>
+                    <div class="fw-bold" id="titulo-furo">...</div>
+                    <small class="text-warning" id="prof-atual">Próx: 1.0m</small>
                 </div>
             </div>
-            <button class="btn btn-outline-warning btn-sm text-white border-white" onclick="abrirModalFim()">Finalizar</button>
+            <button class="btn btn-outline-warning btn-sm" onclick="modalFim()">Finalizar</button>
         </div>
 
         <div class="container mt-3">
-            <div class="card shadow-sm border-0 mb-4">
+            <div class="card shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted fw-bold mb-3">GOLPES (a cada 15cm)</h6>
+                    <label class="fw-bold text-muted small">GOLPES (1º / 2º / 3º)</label>
                     <div class="row g-2 mb-3">
-                        <div class="col-4"><input type="tel" id="g1" class="form-control input-gigante" placeholder="1º"></div>
-                        <div class="col-4"><input type="tel" id="g2" class="form-control input-gigante" placeholder="2º"></div>
-                        <div class="col-4"><input type="tel" id="g3" class="form-control input-gigante" placeholder="3º"></div>
+                        <div class="col-4"><input type="tel" id="g1" class="form-control input-big" placeholder="-"></div>
+                        <div class="col-4"><input type="tel" id="g2" class="form-control input-big" placeholder="-"></div>
+                        <div class="col-4"><input type="tel" id="g3" class="form-control input-big" placeholder="-"></div>
                     </div>
-                    
-                    <h6 class="text-muted fw-bold mb-2">SOLO RÁPIDO</h6>
-                    <div class="mb-2 d-flex flex-wrap" id="tags-solo">
+
+                    <label class="fw-bold text-muted small">SOLO</label>
+                    <div class="mb-2" id="tags">
                         <span class="tag-solo" onclick="addSolo('Argila')">Argila</span>
                         <span class="tag-solo" onclick="addSolo('Areia')">Areia</span>
                         <span class="tag-solo" onclick="addSolo('Silte')">Silte</span>
-                        <span class="tag-solo" onclick="addSolo('Argilosa')">Argilosa</span>
-                        <span class="tag-solo" onclick="addSolo('Arenosa')">Arenosa</span>
-                        <span class="tag-solo" onclick="addSolo('Siltosa')">Siltosa</span>
                         <span class="tag-solo" onclick="addSolo('Vermelha')">Vermelha</span>
                         <span class="tag-solo" onclick="addSolo('Amarela')">Amarela</span>
                         <span class="tag-solo" onclick="addSolo('Cinza')">Cinza</span>
-                        <span class="tag-solo" onclick="addSolo('Marrom')">Marrom</span>
                     </div>
-                    <textarea id="solo" class="form-control mb-3" rows="2" placeholder="Descrição completa..."></textarea>
-                    
-                    <button class="btn btn-primary btn-zao mb-2" onclick="document.getElementById('cam').click()">
-                        <i class="bi bi-camera-fill"></i> FOTO
-                    </button>
-                    <input type="file" id="cam" accept="image/*" class="d-none" onchange="tirarFoto()">
-                    
-                    <button class="btn btn-success btn-zao" onclick="salvarMetro()">
-                        <i class="bi bi-check-lg"></i> SALVAR METRO
-                    </button>
+                    <textarea id="solo" class="form-control mb-3" rows="2"></textarea>
+
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <button class="btn btn-primary btn-big" onclick="document.getElementById('cam').click()"><i class="bi bi-camera"></i></button>
+                            <input type="file" id="cam" accept="image/*" class="d-none" onchange="foto()">
+                        </div>
+                        <div class="col-8">
+                            <button class="btn btn-success btn-big" onclick="salvar()">SALVAR METRO</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <h6 class="ms-2 text-muted small">JÁ PERFURADO</h6>
-            <div class="list-group shadow-sm" id="historico-furo"></div>
+            
+            <h6 class="ms-2 small text-muted">HISTÓRICO</h6>
+            <div class="list-group" id="historico"></div>
         </div>
     </div>
 
     <div class="modal fade" id="modalFim" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Dados Finais</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
+                <div class="modal-header"><h5 class="modal-title">Nível D'água</h5></div>
                 <div class="modal-body">
-                    <label>Nível D'água Inicial (m)</label>
-                    <input type="number" id="na_ini" class="form-control input-gigante mb-3" placeholder="0.00">
-                    <label>Nível Final 24h (m)</label>
-                    <input type="number" id="na_fim" class="form-control input-gigante mb-3" placeholder="0.00">
-                    <button class="btn btn-dark btn-zao" onclick="salvarFinal()">SALVAR TUDO</button>
+                    <label>Inicial (m)</label><input type="number" id="na_ini" class="form-control input-big mb-3">
+                    <label>Final 24h (m)</label><input type="number" id="na_fim" class="form-control input-big mb-3">
+                    <button class="btn btn-dark btn-big" onclick="salvarFim()">SALVAR E SAIR</button>
                 </div>
             </div>
         </div>
@@ -127,154 +104,65 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // ESTADO GLOBAL
-        let obraId = null, furoId = null, nextProf = 1;
+        let obraId, furoId, nextProf=1;
 
-        // NAVEGAÇÃO
-        function mostrar(id) {
-            document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
-            document.getElementById(id).classList.add('ativa');
-        }
-        function voltar(id) { 
-            if(id === 'tela-obras') carregarObras();
-            mostrar(id); 
-        }
+        function mostrar(tela) { document.querySelectorAll('.tela').forEach(t=>t.classList.remove('ativa')); document.getElementById(tela).classList.add('ativa'); }
+        function voltar(tela) { if(tela==='tela-obras') carregarObras(); mostrar(tela); }
 
-        // --- LÓGICA TELA OBRAS ---
         function carregarObras() {
-            fetch('/api/propostas').then(r=>r.json()).then(d => {
-                const div = document.getElementById('lista-obras'); div.innerHTML = '';
-                d.forEach(o => {
-                    div.innerHTML += `
-                    <div class="card card-obra shadow-sm" onclick="entrarObra(${o.id}, '${o.cliente}')">
-                        <div class="card-body">
-                            <h5 class="fw-bold mb-0">${o.cliente}</h5>
-                            <small class="text-muted">${o.endereco}</small>
-                        </div>
-                    </div>`;
-                });
+            fetch('/api/propostas').then(r=>r.json()).then(d=>{
+                const l = document.getElementById('lista-obras'); l.innerHTML='';
+                d.forEach(o => l.innerHTML += `<div class="card card-obra shadow-sm" onclick="obra(${o.id}, '${o.cliente}')"><div class="card-body py-3 fw-bold">${o.cliente}</div></div>`);
             });
         }
-        function entrarObra(id, nome) {
-            obraId = id;
-            document.getElementById('titulo-obra').innerText = nome;
-            mostrar('tela-furos');
-            carregarFuros();
-        }
+        function obra(id, nome) { obraId=id; document.getElementById('titulo-obra').innerText=nome; mostrar('tela-furos'); carregarFuros(); }
 
-        // --- LÓGICA TELA FUROS ---
         function carregarFuros() {
-            fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(d => {
-                const div = document.getElementById('lista-furos'); div.innerHTML = '';
-                d.forEach(f => {
-                    div.innerHTML += `
-                    <div class="card mb-2 shadow-sm" onclick="entrarFuro(${f.id}, '${f.nome_furo}')">
-                        <div class="card-body py-3 d-flex justify-content-between align-items-center">
-                            <span class="fs-5 fw-bold text-dark">${f.nome_furo}</span>
-                            <span class="badge bg-light text-dark border">Abrir ></span>
-                        </div>
-                    </div>`;
-                });
+            fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(d=>{
+                const l = document.getElementById('lista-furos'); l.innerHTML='';
+                d.forEach(f => l.innerHTML += `<div class="card mb-2 shadow-sm" onclick="furo(${f.id}, '${f.nome_furo}')"><div class="card-body py-3 d-flex justify-content-between fw-bold"><span>${f.nome_furo}</span><i class="bi bi-chevron-right"></i></div></div>`);
             });
         }
         function abrirNovoFuro() {
-            const nome = prompt("Nome do Furo (Ex: SP-01):", "SP-");
-            if(nome) {
-                fetch('/api/boletim/furos', {
-                    method: 'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({ proposta_id: obraId, nome_furo: nome, sondador: 'App', data_inicio: new Date(), nivel_agua_inicial: 0 })
-                }).then(r=>r.json()).then(d => entrarFuro(d.id, nome));
-            }
+            const n = prompt('Nome (ex: SP-01):', 'SP-');
+            if(n) fetch('/api/boletim/furos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({proposta_id:obraId, nome_furo:n, sondador:'App', data_inicio:new Date(), nivel_agua_inicial:0})}).then(r=>r.json()).then(d=>furo(d.id, n));
         }
-        function entrarFuro(id, nome) {
-            furoId = id;
-            document.getElementById('titulo-furo').innerText = nome;
-            mostrar('tela-coleta');
-            carregarDadosFuro();
-        }
+        function furo(id, nome) { furoId=id; document.getElementById('titulo-furo').innerText=nome; mostrar('tela-coleta'); dados(); }
 
-        // --- LÓGICA COLETA ---
-        function carregarDadosFuro() {
-            fetch(`/api/boletim/amostras/${furoId}`).then(r=>r.json()).then(d => {
-                const lista = document.getElementById('historico-furo'); lista.innerHTML = '';
-                let maiorProf = 0;
-                d.forEach(a => {
-                    maiorProf = parseFloat(a.profundidade_ini);
-                    lista.innerHTML = `<div class="list-group-item d-flex justify-content-between">
-                        <strong>${parseFloat(a.profundidade_ini).toFixed(2)}m</strong>
-                        <span>${a.golpe_1} / ${a.golpe_2} / ${a.golpe_3}</span>
-                    </div>` + lista.innerHTML;
-                });
-                nextProf = maiorProf + 1;
-                document.getElementById('prof-atual').innerText = `Próx: ${nextProf.toFixed(2)}m`;
-                
-                // Limpar campos
-                ['g1','g2','g3','solo'].forEach(id => document.getElementById(id).value = '');
+        function dados() {
+            fetch(`/api/boletim/amostras/${furoId}`).then(r=>r.json()).then(d=>{
+                const l = document.getElementById('historico'); l.innerHTML='';
+                let max=0;
+                d.forEach(a=>{ max=parseFloat(a.profundidade_ini); l.innerHTML = `<div class="list-group-item d-flex justify-content-between"><strong>${max.toFixed(2)}m</strong><span>${a.golpe_1}/${a.golpe_2}/${a.golpe_3}</span></div>`+l.innerHTML; });
+                nextProf = max+1; document.getElementById('prof-atual').innerText = `Próx: ${nextProf.toFixed(2)}m`;
+                ['g1','g2','g3','solo'].forEach(i=>document.getElementById(i).value='');
             });
-            // Carrega dados de agua se tiver
-            fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(fs => {
-               const f = fs.find(x => x.id == furoId);
-               if(f) {
-                   document.getElementById('na_ini').value = f.nivel_agua_inicial;
-                   document.getElementById('na_fim').value = f.nivel_agua_final;
-               }
+            fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(d=>{
+                const f = d.find(x=>x.id==furoId);
+                if(f) { document.getElementById('na_ini').value=f.nivel_agua_inicial; document.getElementById('na_fim').value=f.nivel_agua_final; }
             });
         }
 
-        function addSolo(texto) {
-            const input = document.getElementById('solo');
-            input.value = input.value ? input.value + ' ' + texto.toLowerCase() : texto;
-        }
-
-        function salvarMetro() {
-            const g1 = document.getElementById('g1').value;
-            const g2 = document.getElementById('g2').value;
-            const g3 = document.getElementById('g3').value;
-            if(!g1 || !g2 || !g3) return alert('Informe os golpes!');
-
-            const dados = {
-                furo_id: furoId,
-                profundidade_ini: nextProf,
-                profundidade_fim: nextProf + 0.45,
-                golpe_1: g1, golpe_2: g2, golpe_3: g3,
-                tipo_solo: document.getElementById('solo').value
-            };
-
-            fetch('/api/boletim/amostras', {
-                method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(dados)
-            }).then(() => carregarDadosFuro());
-        }
-
-        function tirarFoto() {
-            const file = document.getElementById('cam').files[0];
-            if(file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    fetch('/api/boletim/fotos', {
-                        method:'POST', headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({
-                            furo_id: furoId, imagem_base64: e.target.result, legenda: `Prof: ${nextProf}m`
-                        })
-                    }).then(() => alert('Foto salva!'));
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        // --- FINALIZAÇÃO ---
-        function abrirModalFim() { new bootstrap.Modal('#modalFim').show(); }
+        function addSolo(t) { const s = document.getElementById('solo'); s.value = s.value ? s.value+' '+t.toLowerCase() : t; }
         
-        function salvarFinal() {
-            const dados = {
-                nivel_agua_inicial: document.getElementById('na_ini').value,
-                nivel_agua_final: document.getElementById('na_fim').value
-            };
-            fetch(`/api/boletim/furos/${furoId}`, {
-                method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(dados)
-            }).then(() => {
-                alert('Furo finalizado com sucesso!');
-                location.reload();
-            });
+        function salvar() {
+            const g1=document.getElementById('g1').value, g2=document.getElementById('g2').value, g3=document.getElementById('g3').value;
+            if(!g1||!g2||!g3) return alert('Preencha os golpes');
+            fetch('/api/boletim/amostras', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({furo_id:furoId, profundidade_ini:nextProf, profundidade_fim:nextProf+0.45, golpe_1:g1, golpe_2:g2, golpe_3:g3, tipo_solo:document.getElementById('solo').value})}).then(()=>dados());
+        }
+
+        function foto() {
+            const f = document.getElementById('cam').files[0];
+            if(f) {
+                const r = new FileReader();
+                r.onload = e => fetch('/api/boletim/fotos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({furo_id:furoId, imagem_base64:e.target.result, legenda:`Prof: ${nextProf}m`})}).then(()=>alert('Foto Salva!'));
+                r.readAsDataURL(f);
+            }
+        }
+
+        function modalFim() { new bootstrap.Modal('#modalFim').show(); }
+        function salvarFim() {
+            fetch(`/api/boletim/furos/${furoId}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nivel_agua_inicial:document.getElementById('na_ini').value, nivel_agua_final:document.getElementById('na_fim').value})}).then(()=>{ alert('Salvo!'); location.reload(); });
         }
 
         carregarObras();
