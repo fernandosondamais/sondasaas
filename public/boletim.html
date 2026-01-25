@@ -3,282 +3,280 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Boletim de Campo</title>
+    <title>Boletim SondaSaaS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; padding-bottom: 80px; }
-        .header-campo { background-color: var(--sonda-dark); color: white; padding: 12px 15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .nav-tabs .nav-link { color: #666; border-radius: 0; }
-        .nav-tabs .nav-link.active { color: var(--sonda-green); font-weight: bold; border-bottom: 3px solid var(--sonda-green); }
-        .card-obra { border: none; border-left: 5px solid var(--sonda-green); margin-bottom: 10px; cursor: pointer; }
-        .btn-grande { width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; margin-top: 10px; }
-        .input-golpe { border: 1px solid #ced4da; border-radius: 5px; text-align: center; font-size: 1.2rem; font-weight: bold; color: var(--sonda-dark); }
-        .table-custom th { background-color: #e9ecef; font-size: 0.8rem; text-transform: uppercase; }
-        .table-custom td { vertical-align: middle; padding: 8px 4px; }
-        .prof-cell { font-weight: bold; color: var(--sonda-green); }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; display: none; justify-content: center; align-items: end; }
-        .modal-content-bottom { background: white; width: 100%; border-radius: 20px 20px 0 0; padding: 20px; animation: slideUp 0.3s; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        :root { --sonda-green: #8CBF26; --sonda-dark: #444444; }
+        body { background-color: #f0f2f5; font-family: sans-serif; padding-bottom: 100px; }
+        .header-app { background: var(--sonda-dark); color: white; padding: 15px; position: sticky; top: 0; z-index: 999; }
+        
+        /* Cartões Grandes para Dedo */
+        .card-obra { border-left: 6px solid var(--sonda-green); margin-bottom: 12px; cursor: pointer; active: scale(0.98); }
+        .btn-zao { height: 55px; font-size: 1.1rem; font-weight: bold; width: 100%; border-radius: 12px; margin-top: 10px; }
+        
+        /* Inputs Gigantes */
+        .input-gigante { height: 60px; font-size: 1.5rem; text-align: center; font-weight: bold; border: 2px solid #ddd; }
+        .input-gigante:focus { border-color: var(--sonda-green); box-shadow: none; }
+        
+        /* Botões de Solo Rápido */
+        .tag-solo { border: 1px solid #ccc; padding: 10px 15px; border-radius: 20px; background: white; margin: 3px; display: inline-block; cursor: pointer; font-weight: 500; font-size: 0.9rem; }
+        .tag-solo.active { background: var(--sonda-green); color: white; border-color: var(--sonda-green); }
+
         .tela { display: none; }
-        .tela.ativa { display: block; }
+        .tela.ativa { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div id="tela-obras" class="tela ativa">
-        <div class="header-campo d-flex justify-content-between align-items-center">
-            <span class="fw-bold"><i class="bi bi-cone-striped me-2"></i>OBRAS</span>
-            <small class="text-white-50">v2.4 (Galeria)</small>
+        <div class="header-app d-flex justify-content-between">
+            <span class="fw-bold fs-5">Minhas Obras</span>
+            <button onclick="carregarObras()" class="btn btn-sm btn-outline-light"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
         <div class="container mt-3" id="lista-obras">
-            <div class="text-center py-5"><div class="spinner-border text-success"></div></div>
+            <p class="text-center mt-5 text-muted">Carregando obras...</p>
         </div>
     </div>
 
     <div id="tela-furos" class="tela">
-        <div class="header-campo d-flex align-items-center gap-3">
-            <button class="btn btn-sm btn-outline-light" onclick="voltar('tela-obras')"><i class="bi bi-arrow-left"></i></button>
-            <h6 class="m-0 text-truncate" id="titulo-obra">Obra</h6>
+        <div class="header-app d-flex align-items-center gap-3">
+            <i class="bi bi-arrow-left fs-4" onclick="voltar('tela-obras')"></i>
+            <h6 class="m-0 text-truncate fw-bold" id="titulo-obra">...</h6>
         </div>
         <div class="container mt-3">
-            <div id="lista-furos"></div>
-            <button class="btn btn-grande btn-success" onclick="abrirNovoFuro()">
-                <i class="bi bi-plus-lg me-2"></i>ABRIR NOVO FURO
+            <button class="btn btn-success btn-zao shadow" onclick="abrirNovoFuro()">
+                <i class="bi bi-plus-circle me-2"></i>NOVO FURO
             </button>
+            <hr>
+            <div id="lista-furos"></div>
         </div>
     </div>
 
-    <div id="tela-amostras" class="tela">
-        <div class="header-campo d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-sm btn-outline-light" onclick="voltar('tela-furos')"><i class="bi bi-arrow-left"></i></button>
-                <span class="fw-bold" id="titulo-furo">SP-01</span>
+    <div id="tela-coleta" class="tela">
+        <div class="header-app d-flex justify-content-between align-items-center">
+            <div class="d-flex gap-3 align-items-center">
+                <i class="bi bi-arrow-left fs-4" onclick="voltar('tela-furos')"></i>
+                <div>
+                    <div class="fw-bold" id="titulo-furo">SP-01</div>
+                    <small id="prof-atual" class="text-warning">Próx: 1.0m</small>
+                </div>
             </div>
-            <button class="btn btn-sm btn-warning text-dark fw-bold" onclick="abrirModalDados()">
-                <i class="bi bi-gear-fill"></i> DADOS
-            </button>
+            <button class="btn btn-outline-warning btn-sm text-white border-white" onclick="abrirModalFim()">Finalizar</button>
         </div>
 
-        <ul class="nav nav-tabs nav-fill bg-white shadow-sm" id="abasFuro">
-            <li class="nav-item"><a class="nav-link active" id="tab-dados" href="#" onclick="alternarAba('dados')">DADOS / GOLPES</a></li>
-            <li class="nav-item"><a class="nav-link" id="tab-fotos" href="#" onclick="alternarAba('fotos')">FOTOS</a></li>
-        </ul>
-
-        <div id="conteudo-dados" class="container mt-3">
-            <div class="card shadow-sm mb-3">
-                <div class="card-body p-3">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="badge bg-secondary" id="display-prof">1.00m</span>
-                        <span class="badge bg-light text-dark border">SPT</span>
+        <div class="container mt-3">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h6 class="text-muted fw-bold mb-3">GOLPES (a cada 15cm)</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4"><input type="tel" id="g1" class="form-control input-gigante" placeholder="1º"></div>
+                        <div class="col-4"><input type="tel" id="g2" class="form-control input-gigante" placeholder="2º"></div>
+                        <div class="col-4"><input type="tel" id="g3" class="form-control input-gigante" placeholder="3º"></div>
                     </div>
-                    <div class="row g-2 mb-2">
-                        <div class="col-4"><input type="tel" id="g1" class="form-control input-golpe" placeholder="1º"></div>
-                        <div class="col-4"><input type="tel" id="g2" class="form-control input-golpe" placeholder="2º"></div>
-                        <div class="col-4"><input type="tel" id="g3" class="form-control input-golpe" placeholder="3º"></div>
+                    
+                    <h6 class="text-muted fw-bold mb-2">SOLO RÁPIDO</h6>
+                    <div class="mb-2 d-flex flex-wrap" id="tags-solo">
+                        <span class="tag-solo" onclick="addSolo('Argila')">Argila</span>
+                        <span class="tag-solo" onclick="addSolo('Areia')">Areia</span>
+                        <span class="tag-solo" onclick="addSolo('Silte')">Silte</span>
+                        <span class="tag-solo" onclick="addSolo('Argilosa')">Argilosa</span>
+                        <span class="tag-solo" onclick="addSolo('Arenosa')">Arenosa</span>
+                        <span class="tag-solo" onclick="addSolo('Siltosa')">Siltosa</span>
+                        <span class="tag-solo" onclick="addSolo('Vermelha')">Vermelha</span>
+                        <span class="tag-solo" onclick="addSolo('Amarela')">Amarela</span>
+                        <span class="tag-solo" onclick="addSolo('Cinza')">Cinza</span>
+                        <span class="tag-solo" onclick="addSolo('Marrom')">Marrom</span>
                     </div>
-                    <div class="mb-3"><input type="text" id="solo" class="form-control" placeholder="Descrição do Solo..."></div>
-                    <button class="btn btn-success w-100 fw-bold py-2" onclick="salvarAmostra()">
-                        <i class="bi bi-check2"></i> SALVAR METRO
+                    <textarea id="solo" class="form-control mb-3" rows="2" placeholder="Descrição completa..."></textarea>
+                    
+                    <button class="btn btn-primary btn-zao mb-2" onclick="document.getElementById('cam').click()">
+                        <i class="bi bi-camera-fill"></i> FOTO
+                    </button>
+                    <input type="file" id="cam" accept="image/*" class="d-none" onchange="tirarFoto()">
+                    
+                    <button class="btn btn-success btn-zao" onclick="salvarMetro()">
+                        <i class="bi bi-check-lg"></i> SALVAR METRO
                     </button>
                 </div>
             </div>
-            <div class="card border-0 shadow-sm">
-                <table class="table table-custom mb-0 text-center">
-                    <thead><tr><th>Prof</th><th>1º</th><th>2º</th><th>3º</th><th>Solo</th></tr></thead>
-                    <tbody id="tbody-amostras"></tbody>
-                </table>
-            </div>
-        </div>
 
-        <div id="conteudo-fotos" class="container mt-3" style="display: none;">
-            <div class="card shadow-sm p-3 mb-3 text-center bg-light border-dashed">
-                <i class="bi bi-camera fs-1 text-muted"></i>
-                <h6 class="text-muted mt-2">Adicionar Foto</h6>
-                <p class="small text-muted mb-3">Sondas, Amostras ou Local.</p>
-                <input type="file" id="inputCamera" accept="image/*" class="d-none" onchange="processarFoto()">
-                <button class="btn btn-primary w-100 fw-bold" onclick="document.getElementById('inputCamera').click()">
-                    <i class="bi bi-camera-fill me-2"></i>ABRIR CÂMERA / ARQUIVO
-                </button>
-            </div>
-            
-            <h6 class="text-muted ms-1 mb-2">Fotos Salvas</h6>
-            <div id="galeria-fotos" class="row g-3">
-                </div>
+            <h6 class="ms-2 text-muted small">JÁ PERFURADO</h6>
+            <div class="list-group shadow-sm" id="historico-furo"></div>
         </div>
     </div>
 
-    <div id="modal-dados" class="modal-overlay" onclick="fecharModal(event)">
-        <div class="modal-content-bottom">
-            <h5 class="fw-bold mb-3"><i class="bi bi-clipboard-data"></i> Dados do Furo</h5>
-            
-            <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <label class="small fw-bold">Nível Inicial</label>
-                    <input type="number" id="na_ini" class="form-control" placeholder="Ex: 12.35" step="0.01">
+    <div class="modal fade" id="modalFim" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Dados Finais</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="col-6">
-                    <label class="small fw-bold">Final (24h)</label>
-                    <input type="number" id="na_fim" class="form-control" placeholder="Ex: 12.40" step="0.01">
-                </div>
-                <div class="col-12 form-text text-muted small">Deixe em branco se for seco.</div>
-            </div>
-
-            <div class="row g-2 mb-4">
-                <div class="col-6">
-                    <label class="small fw-bold">Início</label>
-                    <input type="date" id="dt_ini" class="form-control">
-                </div>
-                <div class="col-6">
-                    <label class="small fw-bold">Término</label>
-                    <input type="date" id="dt_fim" class="form-control">
+                <div class="modal-body">
+                    <label>Nível D'água Inicial (m)</label>
+                    <input type="number" id="na_ini" class="form-control input-gigante mb-3" placeholder="0.00">
+                    <label>Nível Final 24h (m)</label>
+                    <input type="number" id="na_fim" class="form-control input-gigante mb-3" placeholder="0.00">
+                    <button class="btn btn-dark btn-zao" onclick="salvarFinal()">SALVAR TUDO</button>
                 </div>
             </div>
-            
-            <div class="mb-3">
-                 <label class="small fw-bold">Coordenadas / Obs</label>
-                 <input type="text" id="coords" class="form-control" placeholder="Ex: UTM ou Lat/Long">
-            </div>
-
-            <button class="btn btn-dark w-100 py-3 fw-bold" onclick="salvarDadosFuro()">
-                <i class="bi bi-save"></i> SALVAR DADOS
-            </button>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let obraId = null; let furoId = null; let nextProf = 1.0;
+        // ESTADO GLOBAL
+        let obraId = null, furoId = null, nextProf = 1;
 
-        function alternarAba(aba) {
-            document.getElementById('conteudo-dados').style.display = aba === 'dados' ? 'block' : 'none';
-            document.getElementById('conteudo-fotos').style.display = aba === 'fotos' ? 'block' : 'none';
-            document.getElementById('tab-dados').classList.toggle('active', aba === 'dados');
-            document.getElementById('tab-fotos').classList.toggle('active', aba === 'fotos');
-            
-            // Se clicar na aba fotos, recarrega a galeria
-            if(aba === 'fotos') carregarFotos();
+        // NAVEGAÇÃO
+        function mostrar(id) {
+            document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
+            document.getElementById(id).classList.add('ativa');
+        }
+        function voltar(id) { 
+            if(id === 'tela-obras') carregarObras();
+            mostrar(id); 
         }
 
-        function processarFoto() {
-            const input = document.getElementById('inputCamera');
-            if (input.files && input.files[0]) {
-                const file = input.files[0];
-                const legenda = prompt("Legenda da foto (Ex: Amostra 2m):", "Foto de Campo");
-                if(!legenda) return;
+        // --- LÓGICA TELA OBRAS ---
+        function carregarObras() {
+            fetch('/api/propostas').then(r=>r.json()).then(d => {
+                const div = document.getElementById('lista-obras'); div.innerHTML = '';
+                d.forEach(o => {
+                    div.innerHTML += `
+                    <div class="card card-obra shadow-sm" onclick="entrarObra(${o.id}, '${o.cliente}')">
+                        <div class="card-body">
+                            <h5 class="fw-bold mb-0">${o.cliente}</h5>
+                            <small class="text-muted">${o.endereco}</small>
+                        </div>
+                    </div>`;
+                });
+            });
+        }
+        function entrarObra(id, nome) {
+            obraId = id;
+            document.getElementById('titulo-obra').innerText = nome;
+            mostrar('tela-furos');
+            carregarFuros();
+        }
 
+        // --- LÓGICA TELA FUROS ---
+        function carregarFuros() {
+            fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(d => {
+                const div = document.getElementById('lista-furos'); div.innerHTML = '';
+                d.forEach(f => {
+                    div.innerHTML += `
+                    <div class="card mb-2 shadow-sm" onclick="entrarFuro(${f.id}, '${f.nome_furo}')">
+                        <div class="card-body py-3 d-flex justify-content-between align-items-center">
+                            <span class="fs-5 fw-bold text-dark">${f.nome_furo}</span>
+                            <span class="badge bg-light text-dark border">Abrir ></span>
+                        </div>
+                    </div>`;
+                });
+            });
+        }
+        function abrirNovoFuro() {
+            const nome = prompt("Nome do Furo (Ex: SP-01):", "SP-");
+            if(nome) {
+                fetch('/api/boletim/furos', {
+                    method: 'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ proposta_id: obraId, nome_furo: nome, sondador: 'App', data_inicio: new Date(), nivel_agua_inicial: 0 })
+                }).then(r=>r.json()).then(d => entrarFuro(d.id, nome));
+            }
+        }
+        function entrarFuro(id, nome) {
+            furoId = id;
+            document.getElementById('titulo-furo').innerText = nome;
+            mostrar('tela-coleta');
+            carregarDadosFuro();
+        }
+
+        // --- LÓGICA COLETA ---
+        function carregarDadosFuro() {
+            fetch(`/api/boletim/amostras/${furoId}`).then(r=>r.json()).then(d => {
+                const lista = document.getElementById('historico-furo'); lista.innerHTML = '';
+                let maiorProf = 0;
+                d.forEach(a => {
+                    maiorProf = parseFloat(a.profundidade_ini);
+                    lista.innerHTML = `<div class="list-group-item d-flex justify-content-between">
+                        <strong>${parseFloat(a.profundidade_ini).toFixed(2)}m</strong>
+                        <span>${a.golpe_1} / ${a.golpe_2} / ${a.golpe_3}</span>
+                    </div>` + lista.innerHTML;
+                });
+                nextProf = maiorProf + 1;
+                document.getElementById('prof-atual').innerText = `Próx: ${nextProf.toFixed(2)}m`;
+                
+                // Limpar campos
+                ['g1','g2','g3','solo'].forEach(id => document.getElementById(id).value = '');
+            });
+            // Carrega dados de agua se tiver
+            fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(fs => {
+               const f = fs.find(x => x.id == furoId);
+               if(f) {
+                   document.getElementById('na_ini').value = f.nivel_agua_inicial;
+                   document.getElementById('na_fim').value = f.nivel_agua_final;
+               }
+            });
+        }
+
+        function addSolo(texto) {
+            const input = document.getElementById('solo');
+            input.value = input.value ? input.value + ' ' + texto.toLowerCase() : texto;
+        }
+
+        function salvarMetro() {
+            const g1 = document.getElementById('g1').value;
+            const g2 = document.getElementById('g2').value;
+            const g3 = document.getElementById('g3').value;
+            if(!g1 || !g2 || !g3) return alert('Informe os golpes!');
+
+            const dados = {
+                furo_id: furoId,
+                profundidade_ini: nextProf,
+                profundidade_fim: nextProf + 0.45,
+                golpe_1: g1, golpe_2: g2, golpe_3: g3,
+                tipo_solo: document.getElementById('solo').value
+            };
+
+            fetch('/api/boletim/amostras', {
+                method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(dados)
+            }).then(() => carregarDadosFuro());
+        }
+
+        function tirarFoto() {
+            const file = document.getElementById('cam').files[0];
+            if(file) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = function() {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        const maxWidth = 800; // Reduz tamanho para não pesar no banco
-                        const scale = maxWidth / img.width;
-                        canvas.width = maxWidth;
-                        canvas.height = img.height * scale;
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                        enviarFotoParaBanco(dataUrl, legenda);
-                    };
+                reader.onload = (e) => {
+                    fetch('/api/boletim/fotos', {
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({
+                            furo_id: furoId, imagem_base64: e.target.result, legenda: `Prof: ${nextProf}m`
+                        })
+                    }).then(() => alert('Foto salva!'));
                 };
                 reader.readAsDataURL(file);
             }
         }
 
-        function enviarFotoParaBanco(base64, legenda) {
-            fetch('/api/boletim/fotos', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ furo_id: furoId, imagem_base64: base64, legenda: legenda })
-            }).then(res => {
-                if(res.ok) { alert('Foto salva!'); carregarFotos(); }
-                else { alert('Erro ao salvar.'); }
-            });
-        }
-
-        function carregarFotos() {
-            const div = document.getElementById('galeria-fotos');
-            div.innerHTML = '<div class="col-12 text-center"><div class="spinner-border spinner-border-sm"></div></div>';
-            
-            fetch(`/api/boletim/fotos/${furoId}`).then(r=>r.json()).then(data => {
-                div.innerHTML = '';
-                if(data.length === 0) div.innerHTML = '<p class="text-center text-muted col-12 my-4">Nenhuma foto salva neste furo.</p>';
-                
-                data.forEach(f => {
-                    div.innerHTML += `
-                        <div class="col-6">
-                            <div class="card shadow-sm h-100">
-                                <div class="card-body p-2 text-center bg-white d-flex flex-column justify-content-center">
-                                    <img src="/api/foto-full/${f.id}" class="img-fluid rounded mb-2" style="max-height: 150px; object-fit: cover;">
-                                    <small class="fw-bold d-block text-truncate w-100">${f.legenda}</small>
-                                    <small class="text-muted" style="font-size:0.7rem">${new Date(f.data_upload).toLocaleDateString()}</small>
-                                </div>
-                            </div>
-                        </div>`;
-                });
-            });
-        }
-
-        // --- SISTEMA DE NAVEGAÇÃO E DADOS ---
-        function carregarObras() {
-            fetch('/api/propostas').then(r=>r.json()).then(d => {
-                const el = document.getElementById('lista-obras'); el.innerHTML = '';
-                d.forEach(o => { el.innerHTML += `<div class="card card-obra shadow-sm" onclick="abrirObra(${o.id}, '${o.cliente}')"><div class="card-body py-3"><div class="fw-bold text-dark">${o.cliente}</div><div class="small text-muted">${o.endereco}</div></div></div>`; });
-            });
-        }
-        function abrirObra(id, nome) { obraId = id; document.getElementById('titulo-obra').innerText = nome; mostrar('tela-furos'); carregarFuros(); }
-        function carregarFuros() {
-            fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(d => {
-                const el = document.getElementById('lista-furos'); el.innerHTML = '';
-                d.forEach(f => { el.innerHTML += `<div class="card mb-2 shadow-sm" onclick="abrirFuro(${f.id}, '${f.nome_furo}')"><div class="card-body py-3 d-flex justify-content-between"><span class="fw-bold fs-5">${f.nome_furo}</span><span class="badge bg-secondary">${f.data_inicio ? 'Em Andamento' : 'Novo'}</span></div></div>`; });
-            });
-        }
-        function abrirNovoFuro() { const nome = prompt("Nome (Ex: SP-01):", "SP-"); if(!nome) return; fetch('/api/boletim/furos', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ proposta_id: obraId, nome_furo: nome, sondador: 'Padrão', data_inicio: new Date(), nivel_agua_inicial: 0 }) }).then(r=>r.json()).then(d => abrirFuro(d.id, nome)); }
+        // --- FINALIZAÇÃO ---
+        function abrirModalFim() { new bootstrap.Modal('#modalFim').show(); }
         
-        function abrirFuro(id, nome) { 
-            furoId = id; 
-            document.getElementById('titulo-furo').innerText = nome; 
-            mostrar('tela-amostras'); 
-            carregarAmostras(); 
-            alternarAba('dados'); 
-        }
-
-        function carregarAmostras() {
-            fetch(`/api/boletim/amostras/${furoId}`).then(r=>r.json()).then(d => {
-                const el = document.getElementById('tbody-amostras'); el.innerHTML = ''; nextProf = 1.0;
-                d.forEach(a => { addLinhaTabela(a); nextProf = parseFloat(a.profundidade_ini) + 1; });
-                document.getElementById('display-prof').innerText = nextProf.toFixed(2) + 'm';
-                ['g1','g2','g3','solo'].forEach(i => document.getElementById(i).value = '');
-            });
-        }
-
-        function salvarAmostra() {
-            const g1 = document.getElementById('g1').value; const g2 = document.getElementById('g2').value; const g3 = document.getElementById('g3').value; const solo = document.getElementById('solo').value;
-            if(!g1 || !g2 || !g3) return alert('Preencha os golpes!');
-            fetch('/api/boletim/amostras', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ furo_id: furoId, profundidade_ini: nextProf, profundidade_fim: nextProf + 0.45, golpe_1: g1, golpe_2: g2, golpe_3: g3, tipo_solo: solo, cor_solo: '' }) }).then(() => carregarAmostras());
-        }
-
-        function addLinhaTabela(a) { document.getElementById('tbody-amostras').innerHTML = `<tr><td class="prof-cell">${parseFloat(a.profundidade_ini).toFixed(2)}</td><td>${a.golpe_1}</td><td>${a.golpe_2}</td><td>${a.golpe_3}</td><td class="text-start small text-muted">${a.tipo_solo || '-'}</td></tr>` + document.getElementById('tbody-amostras').innerHTML; }
-        
-        function abrirModalDados() { document.getElementById('modal-dados').style.display = 'flex'; }
-        function fecharModal(e) { if(e.target.id === 'modal-dados') document.getElementById('modal-dados').style.display = 'none'; }
-        
-        function salvarDadosFuro() { 
-            const dados = { 
-                nivel_agua_inicial: document.getElementById('na_ini').value || null, 
-                nivel_agua_final: document.getElementById('na_fim').value || null, 
-                data_inicio: document.getElementById('dt_ini').value || null, 
-                data_termino: document.getElementById('dt_fim').value || null, 
-                coordenadas: document.getElementById('coords').value || '' 
+        function salvarFinal() {
+            const dados = {
+                nivel_agua_inicial: document.getElementById('na_ini').value,
+                nivel_agua_final: document.getElementById('na_fim').value
             };
-            fetch(`/api/boletim/furos/${furoId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(dados) }).then(() => { alert('Dados salvos!'); document.getElementById('modal-dados').style.display = 'none'; });
+            fetch(`/api/boletim/furos/${furoId}`, {
+                method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(dados)
+            }).then(() => {
+                alert('Furo finalizado com sucesso!');
+                location.reload();
+            });
         }
 
-        function mostrar(tela) { document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa')); document.getElementById(tela).classList.add('ativa'); }
-        function voltar(tela) { if(tela === 'tela-obras') carregarObras(); mostrar(tela); }
-        
         carregarObras();
     </script>
 </body>
