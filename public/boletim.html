@@ -7,25 +7,30 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { background: #f4f4f4; padding-bottom: 100px; font-family: 'Segoe UI', sans-serif; }
-        .header { background: #2c3e50; color: white; padding: 15px; position: sticky; top: 0; z-index: 1000; }
-        .card-obra { border-left: 5px solid #8CBF26; margin-bottom: 10px; cursor: pointer; }
-        .btn-action { height: 55px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 1.1rem; margin-top: 10px; }
-        .input-big { height: 60px; font-size: 1.4rem; text-align: center; font-weight: bold; }
-        .tag-solo { border: 1px solid #ccc; background: white; padding: 8px 12px; border-radius: 20px; display: inline-block; margin: 2px; cursor: pointer; }
-        .tag-solo:active { background: #8CBF26; color: white; }
-        .tela { display: none; }
+        body { background: #eef2f5; padding-bottom: 100px; font-family: 'Segoe UI', sans-serif; }
+        .header { background: #2c3e50; color: white; padding: 15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .card-obra { border-left: 6px solid #8CBF26; margin-bottom: 12px; cursor: pointer; transition: transform 0.1s; }
+        .card-obra:active { transform: scale(0.98); }
+        .btn-action { height: 55px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 1.1rem; margin-top: 10px; }
+        .input-big { height: 60px; font-size: 1.6rem; text-align: center; font-weight: bold; border: 2px solid #ddd; border-radius: 10px; }
+        .input-big:focus { border-color: #8CBF26; box-shadow: none; }
+        .tag-solo { border: 1px solid #ccc; background: white; padding: 10px 15px; border-radius: 25px; display: inline-block; margin: 3px; cursor: pointer; font-weight: 500; }
+        .tag-solo:active { background: #8CBF26; color: white; border-color: #8CBF26; }
+        .tela { display: none; animation: fadeIn 0.2s; }
         .tela.ativa { display: block; }
+        @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
     </style>
 </head>
 <body>
 
     <div id="tela-obras" class="tela ativa">
-        <div class="header d-flex justify-content-between">
-            <span class="fw-bold">Minhas Obras</span>
+        <div class="header d-flex justify-content-between align-items-center">
+            <span class="fw-bold fs-5">Minhas Obras</span>
             <button class="btn btn-sm btn-outline-light" onclick="loadObras()"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
-        <div class="container mt-3" id="lista-obras">Loading...</div>
+        <div class="container mt-3" id="lista-obras">
+            <div class="text-center mt-5 text-muted">Carregando...</div>
+        </div>
     </div>
 
     <div id="tela-furos" class="tela">
@@ -34,7 +39,9 @@
             <h6 class="m-0 text-truncate fw-bold" id="nome-obra">...</h6>
         </div>
         <div class="container mt-3">
-            <button class="btn btn-success btn-action shadow" onclick="novoFuro()">+ NOVO FURO</button>
+            <button class="btn btn-success btn-action shadow" onclick="novoFuro()">
+                <i class="bi bi-plus-circle me-2"></i> NOVO FURO
+            </button>
             <div id="lista-furos" class="mt-3"></div>
         </div>
     </div>
@@ -45,23 +52,23 @@
                 <i class="bi bi-arrow-left fs-4" onclick="voltar('tela-furos')"></i>
                 <div>
                     <div class="fw-bold" id="nome-furo">SP-XX</div>
-                    <small class="text-warning" id="prox-metro">Próx: 1m</small>
+                    <small class="text-warning" id="prox-metro">Próx: 1.0m</small>
                 </div>
             </div>
-            <button class="btn btn-outline-warning btn-sm" onclick="modalFim()">Finalizar</button>
+            <button class="btn btn-outline-warning btn-sm border-white text-white" onclick="modalFim()">Finalizar</button>
         </div>
 
         <div class="container mt-3">
             <div class="card shadow-sm border-0 mb-3">
                 <div class="card-body">
-                    <label class="small fw-bold text-muted">GOLPES (1º / 2º / 3º)</label>
+                    <label class="small fw-bold text-muted mb-2">GOLPES (30cm + 30cm + 30cm)</label>
                     <div class="row g-2 mb-3">
-                        <div class="col-4"><input type="number" id="g1" class="form-control input-big" placeholder="-"></div>
-                        <div class="col-4"><input type="number" id="g2" class="form-control input-big" placeholder="-"></div>
-                        <div class="col-4"><input type="number" id="g3" class="form-control input-big" placeholder="-"></div>
+                        <div class="col-4"><input type="tel" id="g1" class="form-control input-big" placeholder="1º"></div>
+                        <div class="col-4"><input type="tel" id="g2" class="form-control input-big" placeholder="2º"></div>
+                        <div class="col-4"><input type="tel" id="g3" class="form-control input-big" placeholder="3º"></div>
                     </div>
 
-                    <label class="small fw-bold text-muted">DESCRIÇÃO DO SOLO</label>
+                    <label class="small fw-bold text-muted mb-2">SOLO</label>
                     <div class="mb-2">
                         <span class="tag-solo" onclick="addTag('Argila')">Argila</span>
                         <span class="tag-solo" onclick="addTag('Areia')">Areia</span>
@@ -73,56 +80,56 @@
                         <span class="tag-solo" onclick="addTag('Rija')">Rija</span>
                         <span class="tag-solo" onclick="addTag('Mole')">Mole</span>
                         <span class="tag-solo" onclick="addTag('Compacta')">Compacta</span>
+                        <span class="tag-solo" onclick="addTag('Aterro')">Aterro</span>
                     </div>
-                    <textarea id="desc" class="form-control mb-3" rows="2" placeholder="Ex: Argila siltosa vermelha..."></textarea>
+                    <textarea id="desc" class="form-control mb-3 p-3" rows="2" placeholder="Descrição completa..." style="border-radius: 10px;"></textarea>
 
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-primary btn-action w-25" onclick="document.getElementById('cam').click()"><i class="bi bi-camera"></i></button>
-                        <input type="file" id="cam" accept="image/*" class="d-none" onchange="uploadFoto()">
-                        <button class="btn btn-success btn-action w-75" onclick="salvarAmostra()">SALVAR METRO</button>
+                    <div class="row g-2">
+                        <div class="col-3">
+                            <button class="btn btn-primary btn-action mt-0 h-100" onclick="document.getElementById('cam').click()">
+                                <i class="bi bi-camera-fill fs-4"></i>
+                            </button>
+                            <input type="file" id="cam" accept="image/*" class="d-none" onchange="uploadFoto()">
+                        </div>
+                        <div class="col-9">
+                            <button class="btn btn-success btn-action mt-0 h-100" onclick="salvarAmostra()">
+                                <i class="bi bi-check-lg me-2"></i> SALVAR METRO
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <h6 class="ms-2 small text-muted">HISTÓRICO</h6>
-            <div class="list-group" id="historico"></div>
+            <h6 class="ms-2 small text-muted fw-bold">HISTÓRICO DO FURO</h6>
+            <div class="list-group shadow-sm" id="historico" style="border-radius: 10px; overflow: hidden;"></div>
         </div>
     </div>
 
     <div class="modal fade" id="modalFim">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+            <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title">Dados Finais (NBR 6484)</h5>
+                    <h5 class="modal-title fw-bold">Dados Finais (NBR)</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
                         <label class="fw-bold">Nível D'água Inicial (m)</label>
                         <input type="number" id="na_ini" class="form-control input-big" placeholder="0.00">
-                        <small class="text-muted">Deixe em branco se não atingiu.</small>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label class="fw-bold">Nível D'água 24h (m)</label>
                         <input type="number" id="na_fim" class="form-control input-big" placeholder="0.00">
                     </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <label>Data Início</label>
-                            <input type="date" id="dt_ini" class="form-control">
-                        </div>
-                        <div class="col-6">
-                            <label>Data Fim</label>
-                            <input type="date" id="dt_fim" class="form-control">
-                        </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6"><label class="small text-muted">Início</label><input type="date" id="dt_ini" class="form-control"></div>
+                        <div class="col-6"><label class="small text-muted">Fim</label><input type="date" id="dt_fim" class="form-control"></div>
                     </div>
-                    <div class="mt-3">
-                        <label>Coordenadas / Obs</label>
+                    <div class="mb-3">
+                        <label class="small text-muted">Coord / Obs</label>
                         <input type="text" id="coords" class="form-control" placeholder="UTM ou Lat/Long">
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-dark w-100 fw-bold" onclick="salvarFim()">SALVAR E SAIR</button>
+                    <button class="btn btn-dark w-100 fw-bold py-3 rounded-3" onclick="salvarFim()">SALVAR E SAIR</button>
                 </div>
             </div>
         </div>
@@ -132,24 +139,33 @@
     <script>
         let obraId, furoId, nextProf = 1;
 
-        // NAV
         function mostrar(t) { document.querySelectorAll('.tela').forEach(x=>x.classList.remove('ativa')); document.getElementById(t).classList.add('ativa'); }
         function voltar(t) { if(t==='tela-obras') loadObras(); mostrar(t); }
 
-        // OBRAS
         function loadObras() {
             fetch('/api/propostas').then(r=>r.json()).then(d=>{
                 const l = document.getElementById('lista-obras'); l.innerHTML='';
-                d.forEach(o => l.innerHTML += `<div class="card card-obra shadow-sm" onclick="entrarObra(${o.id}, '${o.cliente}')"><div class="card-body fw-bold">${o.cliente}<br><small class="fw-normal text-muted">${o.endereco}</small></div></div>`);
+                d.forEach(o => l.innerHTML += `
+                    <div class="card card-obra shadow-sm" onclick="entrarObra(${o.id}, '${o.cliente}')">
+                        <div class="card-body">
+                            <h5 class="fw-bold mb-1">${o.cliente}</h5>
+                            <small class="text-muted"><i class="bi bi-geo-alt me-1"></i>${o.endereco}</small>
+                        </div>
+                    </div>`);
             });
         }
         function entrarObra(id, nome) { obraId=id; document.getElementById('nome-obra').innerText=nome; mostrar('tela-furos'); loadFuros(); }
 
-        // FUROS
         function loadFuros() {
             fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(d=>{
                 const l = document.getElementById('lista-furos'); l.innerHTML='';
-                d.forEach(f => l.innerHTML += `<div class="card mb-2 shadow-sm" onclick="entrarFuro(${f.id}, '${f.nome_furo}')"><div class="card-body d-flex justify-content-between fw-bold"><span>${f.nome_furo}</span><i class="bi bi-chevron-right"></i></div></div>`);
+                d.forEach(f => l.innerHTML += `
+                    <div class="card mb-2 shadow-sm" onclick="entrarFuro(${f.id}, '${f.nome_furo}')">
+                        <div class="card-body py-3 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold fs-5 text-dark">${f.nome_furo}</span>
+                            <i class="bi bi-chevron-right text-muted"></i>
+                        </div>
+                    </div>`);
             });
         }
         function novoFuro() {
@@ -158,29 +174,37 @@
         }
         function entrarFuro(id, nome) { furoId=id; document.getElementById('nome-furo').innerText=nome; mostrar('tela-coleta'); loadDados(); }
 
-        // DADOS
         function loadDados() {
             fetch(`/api/boletim/amostras/${furoId}`).then(r=>r.json()).then(d=>{
                 const l = document.getElementById('historico'); l.innerHTML='';
                 let max=0;
-                d.forEach(a=>{ max=parseFloat(a.profundidade_ini); l.innerHTML = `<div class="list-group-item d-flex justify-content-between"><strong>${max.toFixed(0)}m</strong><span>${a.golpe_1}/${a.golpe_2}/${a.golpe_3}</span></div>`+l.innerHTML; });
+                d.forEach(a=>{ 
+                    max=parseFloat(a.profundidade_ini); 
+                    l.innerHTML = `
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div><span class="badge bg-dark me-2">${max.toFixed(0)}m</span> <small>${a.tipo_solo.substring(0,20)}...</small></div>
+                            <span class="fw-bold font-monospace">${a.golpe_1}-${a.golpe_2}-${a.golpe_3}</span>
+                        </div>`+l.innerHTML; 
+                });
                 nextProf = max+1; document.getElementById('prox-metro').innerText = `Próx: ${nextProf}m`;
                 ['g1','g2','g3','desc'].forEach(i=>document.getElementById(i).value='');
             });
+            // Carrega dados técnicos se existirem
             fetch(`/api/boletim/furos/${obraId}`).then(r=>r.json()).then(d=>{
                 const f = d.find(x=>x.id==furoId);
                 if(f) { 
                     document.getElementById('na_ini').value = f.nivel_agua_inicial; 
                     document.getElementById('na_fim').value = f.nivel_agua_final; 
+                    document.getElementById('coords').value = f.coordenadas;
                     if(f.data_inicio) document.getElementById('dt_ini').value = f.data_inicio.split('T')[0];
                     if(f.data_termino) document.getElementById('dt_fim').value = f.data_termino.split('T')[0];
-                    document.getElementById('coords').value = f.coordenadas;
                 }
             });
         }
 
         function addTag(t) { const el=document.getElementById('desc'); el.value = el.value ? el.value+' '+t.toLowerCase() : t; }
-        
+        function modalFim() { new bootstrap.Modal('#modalFim').show(); }
+
         function salvarAmostra() {
             const g1=document.getElementById('g1').value, g2=document.getElementById('g2').value, g3=document.getElementById('g3').value;
             if(!g1 || !g2 || !g3) return alert('Preencha os 3 golpes!');
@@ -200,8 +224,6 @@
             }
         }
 
-        function modalFim() { new bootstrap.Modal('#modalFim').show(); }
-        
         function salvarFim() {
             const dados = {
                 nivel_agua_inicial: document.getElementById('na_ini').value || null,
