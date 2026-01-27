@@ -1,130 +1,93 @@
-require('dotenv').config();
-const express = require('express');
 const path = require('path');
+const dotenv = require('dotenv');
+
+// --- 1. CARREGAMENTO FORÇADO DO .ENV ---
+// Isso garante que o arquivo seja lido mesmo se o Windows estiver confuso com o caminho
+const envPath = path.resolve(__dirname, '.env');
+const result = dotenv.config({ path: envPath });
+
+console.log('--------------------------------------------------');
+console.log('>>> 🔍 DIAGNÓSTICO DE INICIALIZAÇÃO 🔍');
+if (result.error) {
+    console.log('❌ ERRO CRÍTICO: O arquivo .env NÃO foi encontrado ou não pôde ser lido.');
+    console.log('👉 Verifique se o nome do arquivo é apenas ".env" e não ".env.txt"');
+} else {
+    console.log('✅ Arquivo .env carregado com sucesso!');
+}
+
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) {
+    console.log('❌ ERRO: A variável DATABASE_URL está vazia!');
+    console.log('👉 O sistema vai tentar conectar localmente e vai falhar.');
+} else {
+    console.log('✅ DATABASE_URL detectada! (Começa com: ' + dbUrl.substring(0, 15) + '...)');
+}
+console.log('--------------------------------------------------');
+
+// --- 2. CONFIGURAÇÃO DO SERVIDOR ---
+const express = require('express');
 const { Pool } = require('pg');
 const session = require('express-session');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// --- 1. CONFIGURAÇÃO INTELIGENTE DO BANCO ---
-// Detecta se estamos no Render ou no Computador
-const isProduction = process.env.NODE_ENV === 'production' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render'));
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // Liga o SSL só se for Produção/Render. Se for local, desliga.
-  ssl: isProduction ? { rejectUnauthorized: false } : false 
-});
-
+// Configura limites para envio de fotos grandes
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
 app.use(express.static('public')); 
 
+// Configura Conexão Segura (Híbrida: Funciona no PC e no Render)
+const isRender = dbUrl && dbUrl.includes('render.com');
+const pool = new Pool({
+  connectionString: dbUrl,
+  ssl: isRender ? { rejectUnauthorized: false } : false 
+});
+
+// Configura Sessão de Login
 app.use(session({
     secret: process.env.SESSION_SECRET || 'segredo_sonda_saas',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: isProduction } // Cookie seguro apenas na nuvem
+    cookie: { secure: isRender } // Só exige HTTPS na nuvem
 }));
 
-// --- 2. FUNÇÃO DE AUTO-REPARO E MIGRAÇÃO ---
+// --- 3. AUTO-REPARO DO BANCO DE DADOS (CRIA TABELAS SOZINHO) ---
 async function iniciarBanco() {
+    if (!dbUrl) return; // Não tenta iniciar se não tiver URL
+
     try {
-        console.log('>>> 🛠️ INICIANDO VERIFICAÇÃO E MIGRAÇÃO DO BANCO...');
+        console.log('>>> 🛠️  VERIFICANDO TABELAS NO BANCO...');
         
-        // Cria tabelas básicas (Empresas e Usuários)
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS empresas (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                nome_fantasia VARCHAR(255),
-                email_dono VARCHAR(255),
-                cnpj VARCHAR(50),
-                data_criacao TIMESTAMP DEFAULT NOW()
-            );
-        `);
+        // Tabelas Essenciais
+        await pool.query(`CREATE TABLE IF NOT EXISTS empresas (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), nome_fantasia VARCHAR(255), email_dono VARCHAR(255), cnpj VARCHAR(50), data_criacao TIMESTAMP DEFAULT NOW());`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS usuarios (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), empresa_id UUID REFERENCES empresas(id), nome VARCHAR(255), email VARCHAR(255) UNIQUE, senha_hash VARCHAR(255), nivel_acesso VARCHAR(50), data_criacao TIMESTAMP DEFAULT NOW());`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS propostas (id SERIAL PRIMARY KEY, empresa_id UUID REFERENCES empresas(id), cliente VARCHAR(255), email VARCHAR(255), telefone VARCHAR(50), endereco TEXT, furos_previstos INTEGER, metragem_total DECIMAL(10,2), valor_total DECIMAL(10,2), status VARCHAR(50) DEFAULT 'Pendente', tecnico_responsavel VARCHAR(255), data_criacao TIMESTAMP DEFAULT NOW());`);
 
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                empresa_id UUID REFERENCES empresas(id),
-                nome VARCHAR(255),
-                email VARCHAR(255) UNIQUE,
-                senha_hash VARCHAR(255),
-                nivel_acesso VARCHAR(50),
-                data_criacao TIMESTAMP DEFAULT NOW()
-            );
-        `);
-
-        // Cria tabela Propostas se não existir
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS propostas (
-                id SERIAL PRIMARY KEY,
-                empresa_id UUID REFERENCES empresas(id),
-                cliente VARCHAR(255),
-                email VARCHAR(255),
-                telefone VARCHAR(50),
-                endereco TEXT,
-                furos_previstos INTEGER,
-                metragem_total DECIMAL(10,2),
-                valor_total DECIMAL(10,2),
-                status VARCHAR(50) DEFAULT 'Pendente',
-                tecnico_responsavel VARCHAR(255),
-                data_criacao TIMESTAMP DEFAULT NOW()
-            );
-        `);
-
-        // --- A VACINA (MIGRAÇÃO) ---
-        // Se a tabela já existia antes do SaaS, ela não tem 'empresa_id'. Vamos criar agora.
+        // Migration de Correção (Adiciona colunas se faltarem)
         try {
-            console.log('>>> 💉 VERIFICANDO COLUNAS FALTANTES...');
             await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS empresa_id UUID REFERENCES empresas(id)`);
             await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS valor_total DECIMAL(10,2)`);
             await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente'`);
-        } catch (e) {
-            console.log('>>> Colunas já existem ou erro ignorável.');
-        }
+        } catch (e) { /* Ignora erro se coluna já existir */ }
 
-        // Garante o ADMIN
+        // Garante o Admin
         const checkAdmin = await pool.query("SELECT * FROM usuarios WHERE email = 'admin@sondasaas.com'");
-        let adminEmpresaId = null;
-
         if (checkAdmin.rows.length === 0) {
-            console.log('>>> 👤 RECRIANDO ADMIN...');
-            // Cria empresa
-            const empRes = await pool.query(`
-                INSERT INTO empresas (nome_fantasia, email_dono, cnpj) 
-                VALUES ('SondaSaaS Matriz', 'admin@sondasaas.com', '0001') 
-                RETURNING id
-            `);
-            adminEmpresaId = empRes.rows[0].id;
-
-            // Cria usuário
-            await pool.query(`
-                INSERT INTO usuarios (empresa_id, nome, email, senha_hash, nivel_acesso)
-                VALUES ($1, 'Admin Supremo', 'admin@sondasaas.com', '123456', 'admin')
-            `, [adminEmpresaId]);
-        } else {
-            adminEmpresaId = checkAdmin.rows[0].empresa_id;
+            console.log('>>> 👤 CRIANDO ADMIN DE EMERGÊNCIA...');
+            const empRes = await pool.query(`INSERT INTO empresas (nome_fantasia, email_dono, cnpj) VALUES ('SondaSaaS Matriz', 'admin@sondasaas.com', '0001') RETURNING id`);
+            await pool.query(`INSERT INTO usuarios (empresa_id, nome, email, senha_hash, nivel_acesso) VALUES ($1, 'Admin Supremo', 'admin@sondasaas.com', '123456', 'admin')`, [empRes.rows[0].id]);
         }
-
-        // Salva propostas antigas (vincula ao Admin)
-        if (adminEmpresaId) {
-            await pool.query(`UPDATE propostas SET empresa_id = $1 WHERE empresa_id IS NULL`, [adminEmpresaId]);
-        }
-
-        console.log('>>> ✅ SISTEMA PRONTO (Local e Nuvem)!');
+        
+        console.log('>>> ✅ BANCO CONECTADO E PRONTO PARA USO!');
 
     } catch (err) {
-        console.error('!!! ERRO AO INICIAR BANCO !!!', err);
+        console.error('!!! ERRO DE CONEXÃO !!!', err.message);
     }
 }
 
-// --- 3. MIDDLEWARES E ROTAS ---
-const checkAuth = (req, res, next) => { 
-    if (req.session.user) next(); 
-    else res.redirect('/login'); 
-};
+// --- 4. ROTAS E MIDDLEWARES ---
+const checkAuth = (req, res, next) => { if (req.session.user) next(); else res.redirect('/login'); };
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
@@ -133,7 +96,7 @@ app.get('/admin', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'pu
 app.get('/engenharia', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'engenharia.html'))); 
 app.get('/logout', (req, res) => { req.session.destroy(); res.redirect('/login'); });
 
-// API Login
+// API Login Simplificada
 app.post('/api/login', async (req, res) => {
     const { email, senha } = req.body;
     try {
@@ -149,16 +112,14 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// Importar Controllers
 const propostasController = require('./controllers/propostasController');
 app.get('/api/propostas', checkAuth, propostasController.listarPropostas);
 app.post('/gerar-proposta', checkAuth, propostasController.criarProposta);
 app.get('/gerar-pdf/:id', checkAuth, propostasController.gerarPDFComercial);
-// Rotas novas do controller (Atualizar e Deletar)
-app.post('/api/propostas/:id/status', checkAuth, propostasController.atualizarStatus); // Se usar POST para update
+app.post('/api/propostas/:id/status', checkAuth, propostasController.atualizarStatus);
 app.delete('/api/propostas/:id', checkAuth, propostasController.deletarProposta);
 
-// INICIALIZAÇÃO
+// Inicializa
 iniciarBanco().then(() => {
-    app.listen(port, () => { console.log(`>>> SondaSaaS ON na porta ${port} <<<`); });
+    app.listen(port, () => { console.log(`>>> 🚀 SondaSaaS RODANDO na porta ${port}`); });
 });
