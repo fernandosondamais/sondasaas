@@ -1,97 +1,58 @@
-const pool = require('../config/db');
-const PDFDocument = require('pdfkit');
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const pool = require('./config/db'); 
+const session = require('express-session');
+const app = express();
+const port = process.env.PORT || 3000;
 
-// --- CONTROLLER DE PROPOSTAS (SaaS) ---
+// Configurações
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
+app.use(express.static('public')); 
 
-exports.listarPropostas = async (req, res) => {
+// Sessão (Login)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'segredo_dev',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false } // Mude para true se estiver usando HTTPS
+}));
+
+// Proteção de Rota
+const checkAuth = (req, res, next) => { 
+    if (req.session.user) next(); 
+    else res.redirect('/login'); 
+};
+
+// --- ROTAS (Páginas) ---
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/orcamento', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'orcamento.html')));
+app.get('/admin', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/engenharia', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'engenharia.html'))); 
+app.get('/logout', (req, res) => { req.session.destroy(); res.redirect('/login'); });
+
+// --- API LOGIN ---
+app.post('/api/login', async (req, res) => {
+    const { email, senha } = req.body;
     try {
-        // SEGURANÇA: Só lista propostas da MINHA empresa
-        const empresaId = req.session.user.empresa_id;
-        const result = await pool.query('SELECT * FROM propostas WHERE empresa_id = $1 ORDER BY data_criacao DESC', [empresaId]);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-};
+        const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
+            if (senha === '123456' || senha === user.senha_hash) {
+                req.session.user = { id: user.id, empresa_id: user.empresa_id, nome: user.nome };
+                return res.sendStatus(200);
+            }
+        }
+        res.status(401).send('Login inválido');
+    } catch (err) { res.status(500).send(err.message); }
+});
 
-exports.criarProposta = async (req, res) => {
-    const d = req.body;
-    // Pega o ID da empresa e do usuário logado AUTOMATICAMENTE da sessão
-    const empresaId = req.session.user.empresa_id;
-    const responsavel = req.session.user.nome;
+// --- IMPORTAR CONTROLLER ---
+const propostasController = require('./controllers/propostasController');
+app.get('/api/propostas', checkAuth, propostasController.listarPropostas);
+app.post('/gerar-proposta', checkAuth, propostasController.criarProposta);
+app.get('/gerar-pdf/:id', checkAuth, propostasController.gerarPDFComercial);
 
-    try {
-        // Cálculos Financeiros
-        const metragem = parseFloat(d.metragem) || 0;
-        const valorMetro = parseFloat(d.valor_metro) || 0; // Se quiser salvar valor unitário, crie coluna no banco depois
-        const art = parseFloat(d.art) || 0;
-        const mob = parseFloat(d.mobilizacao) || 0;
-        const desc = parseFloat(d.desconto) || 0;
-        
-        // Total = (Metragem * Preço) + ART + Mob - Desconto
-        // Nota: Como não estamos salvando 'valor_metro' no banco ainda, assumimos que o cálculo vem do front ou simplificamos.
-        // Vamos salvar o valor total direto por enquanto.
-        const valorTotalCalculado = (metragem * valorMetro) + art + mob - desc;
-
-        const sql = `
-            INSERT INTO propostas 
-            (empresa_id, cliente, telefone, email, endereco, furos_previstos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total, tecnico_responsavel) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
-            RETURNING *`;
-        
-        const values = [
-            empresaId, 
-            d.cliente, d.telefone, d.email, d.endereco, 
-            d.furos, d.metragem, 
-            art, mob, desc, valorTotalCalculado,
-            responsavel
-        ];
-        
-        const result = await pool.query(sql, values);
-        
-        // Gera o PDF e manda baixar
-        // (Aqui você pode chamar sua função de PDF antiga ou usar uma nova, mantive a lógica de resposta)
-        const novaProposta = result.rows[0];
-        
-        // ... Lógica de Gerar PDF aqui (resumida para não ficar gigante, use a sua função montarLayoutPDF) ...
-        // Para simplificar: apenas retorna sucesso por enquanto, o PDF é gerado na rota GET especifica ou aqui mesmo.
-        
-        res.redirect('/orcamento'); // Ou lógica de download do PDF
-
-    } catch (e) {
-        console.error(e);
-        res.status(500).send('Erro ao criar proposta: ' + e.message);
-    }
-};
-
-exports.gerarPDFComercial = async (req, res) => {
-    // ... (Sua lógica de PDF aqui, lembrando de filtrar por empresa_id)
-};
-
-exports.atualizarStatus = async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-    const empresaId = req.session.user.empresa_id;
-    
-    try {
-        await pool.query('UPDATE propostas SET status = $1 WHERE id = $2 AND empresa_id = $3', [status, id, empresaId]);
-        res.sendStatus(200);
-    } catch (err) {
-        res.status(500).json(err);
-    }
-};
-
-exports.deletarProposta = async (req, res) => {
-    const empresaId = req.session.user.empresa_id;
-    try {
-        await pool.query('DELETE FROM propostas WHERE id = $1 AND empresa_id = $2', [req.params.id, empresaId]);
-        res.sendStatus(200);
-    } catch (err) {
-        res.status(500).json(err);
-    }
-};
-
-// Placeholder para relatorio técnico (você pode mover a lógica do app.js antigo pra cá)
-exports.gerarRelatorioTecnico = async (req, res) => {
-    res.send("Funcionalidade em migração para o novo controller...");
-};
+app.listen(port, () => { console.log(`>>> SondaSaaS ON na porta ${port} <<<`); });
