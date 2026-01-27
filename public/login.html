@@ -74,26 +74,36 @@
                     <i class="bi bi-layers-half fs-1"></i>
                 </div>
                 <h4 class="fw-bold" style="color: var(--sonda-dark)">SondaSaaS</h4>
-                <p class="text-muted small">Acesso Restrito Administrativo</p>
+                <p class="text-muted small">Acesso Corporativo</p>
             </div>
             
             <div class="card-body p-4 bg-white">
                 <form id="loginForm">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">E-MAIL</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope"></i></span>
+                            <input type="email" id="email" class="form-control bg-light border-start-0" placeholder="ex: admin@sondasaas.com" required>
+                        </div>
+                    </div>
+
                     <div class="mb-4">
-                        <label class="form-label small fw-bold text-muted">SENHA DE ACESSO</label>
+                        <label class="form-label small fw-bold text-muted">SENHA</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="bi bi-key"></i></span>
-                            <input type="password" id="senha" class="form-control bg-light border-start-0" placeholder="Digite a senha mestra" required>
+                            <input type="password" id="senha" class="form-control bg-light border-start-0" placeholder="Sua senha" required>
                         </div>
                     </div>
                     
                     <button type="submit" class="btn btn-sonda shadow-sm mb-3">
-                        <i class="bi bi-box-arrow-in-right me-2"></i>ENTRAR NO SISTEMA
+                        <i class="bi bi-box-arrow-in-right me-2"></i>ENTRAR
                     </button>
                     
-                    <div class="text-center">
+                    <p id="msgErro" class="text-center text-danger small fw-bold" style="display: none;"></p>
+
+                    <div class="text-center mt-3">
                         <a href="/" class="text-decoration-none small text-muted">
-                            <i class="bi bi-arrow-left me-1"></i>Voltar para Orçamentos
+                            <i class="bi bi-arrow-left me-1"></i>Voltar ao Início
                         </a>
                     </div>
                 </form>
@@ -107,31 +117,42 @@
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            const email = document.getElementById('email').value; // PEGA O EMAIL
             const senha = document.getElementById('senha').value;
             const btn = document.querySelector('button[type="submit"]');
+            const msgErro = document.getElementById('msgErro');
             
+            // Limpa erro anterior
+            msgErro.style.display = 'none';
+
             // Feedback visual
             const originalText = btn.innerHTML;
-            btn.innerHTML = 'Verificando...';
+            btn.innerHTML = 'Conectando...';
             btn.disabled = true;
 
             try {
+                // MANDA EMAIL E SENHA PARA O NOVO BACKEND
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ senha })
+                    body: JSON.stringify({ email, senha }) 
                 });
 
                 if (res.ok) {
-                    window.location.href = '/admin';
+                    // Se deu certo, vai pro Orçamento ou Painel
+                    window.location.href = '/orcamento';
                 } else {
-                    alert('Senha incorreta!');
+                    // Se deu errado (401)
+                    msgErro.innerText = 'E-mail ou senha incorretos.';
+                    msgErro.style.display = 'block';
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 }
             } catch (err) {
                 console.error(err);
-                alert('Erro de conexão.');
+                msgErro.innerText = 'Erro de conexão com o servidor.';
+                msgErro.style.display = 'block';
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
