@@ -4,14 +4,18 @@ const path = require('path');
 const { Pool } = require('pg');
 const session = require('express-session');
 
-// --- 1. CONFIGURAÇÃO DO BANCO ---
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } 
-});
-
 const app = express();
 const port = process.env.PORT || 3000;
+
+// --- 1. CONFIGURAÇÃO INTELIGENTE DO BANCO ---
+// Detecta se estamos no Render ou no Computador
+const isProduction = process.env.NODE_ENV === 'production' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render'));
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // Liga o SSL só se for Produção/Render. Se for local, desliga.
+  ssl: isProduction ? { rejectUnauthorized: false } : false 
+});
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
@@ -21,7 +25,7 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'segredo_sonda_saas',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false } 
+    cookie: { secure: isProduction } // Cookie seguro apenas na nuvem
 }));
 
 // --- 2. FUNÇÃO DE AUTO-REPARO E MIGRAÇÃO ---
@@ -29,7 +33,7 @@ async function iniciarBanco() {
     try {
         console.log('>>> 🛠️ INICIANDO VERIFICAÇÃO E MIGRAÇÃO DO BANCO...');
         
-        // 1. Cria tabelas básicas se não existirem
+        // Cria tabelas básicas (Empresas e Usuários)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS empresas (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -52,7 +56,7 @@ async function iniciarBanco() {
             );
         `);
 
-        // Cria a tabela propostas se ela NÃO existir
+        // Cria tabela Propostas se não existir
         await pool.query(`
             CREATE TABLE IF NOT EXISTS propostas (
                 id SERIAL PRIMARY KEY,
@@ -70,18 +74,18 @@ async function iniciarBanco() {
             );
         `);
 
-        // --- A CORREÇÃO DO ERRO (MIGRAÇÃO) ---
-        // Tenta adicionar a coluna empresa_id na tabela antiga, se ela não existir
+        // --- A VACINA (MIGRAÇÃO) ---
+        // Se a tabela já existia antes do SaaS, ela não tem 'empresa_id'. Vamos criar agora.
         try {
-            console.log('>>> 💉 APLICANDO VACINA NA TABELA PROPOSTAS...');
+            console.log('>>> 💉 VERIFICANDO COLUNAS FALTANTES...');
             await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS empresa_id UUID REFERENCES empresas(id)`);
             await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS valor_total DECIMAL(10,2)`);
             await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente'`);
         } catch (e) {
-            console.log('>>> Tabela propostas já está atualizada.');
+            console.log('>>> Colunas já existem ou erro ignorável.');
         }
 
-        // 2. Garante o ADMIN e a EMPRESA MATRIZ
+        // Garante o ADMIN
         const checkAdmin = await pool.query("SELECT * FROM usuarios WHERE email = 'admin@sondasaas.com'");
         let adminEmpresaId = null;
 
@@ -104,13 +108,12 @@ async function iniciarBanco() {
             adminEmpresaId = checkAdmin.rows[0].empresa_id;
         }
 
-        // 3. SALVA AS PROPOSTAS ÓRFÃS (Se existiam propostas antigas, joga elas pro Admin)
+        // Salva propostas antigas (vincula ao Admin)
         if (adminEmpresaId) {
             await pool.query(`UPDATE propostas SET empresa_id = $1 WHERE empresa_id IS NULL`, [adminEmpresaId]);
-            console.log('>>> 🏚️ Propostas antigas recuperadas e vinculadas ao Admin.');
         }
 
-        console.log('>>> ✅ SISTEMA 100% OPERACIONAL!');
+        console.log('>>> ✅ SISTEMA PRONTO (Local e Nuvem)!');
 
     } catch (err) {
         console.error('!!! ERRO AO INICIAR BANCO !!!', err);
@@ -151,6 +154,9 @@ const propostasController = require('./controllers/propostasController');
 app.get('/api/propostas', checkAuth, propostasController.listarPropostas);
 app.post('/gerar-proposta', checkAuth, propostasController.criarProposta);
 app.get('/gerar-pdf/:id', checkAuth, propostasController.gerarPDFComercial);
+// Rotas novas do controller (Atualizar e Deletar)
+app.post('/api/propostas/:id/status', checkAuth, propostasController.atualizarStatus); // Se usar POST para update
+app.delete('/api/propostas/:id', checkAuth, propostasController.deletarProposta);
 
 // INICIALIZAÇÃO
 iniciarBanco().then(() => {
