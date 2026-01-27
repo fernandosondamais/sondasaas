@@ -4,8 +4,7 @@ const path = require('path');
 const { Pool } = require('pg');
 const session = require('express-session');
 
-// --- CONFIGURAÇÃO DO BANCO ---
-// Adicionamos rejectUnauthorized para garantir conexão no Render
+// --- 1. CONFIGURAÇÃO DO BANCO ---
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false } 
@@ -25,12 +24,12 @@ app.use(session({
     cookie: { secure: false } 
 }));
 
-// --- FUNÇÃO DE AUTO-REPARO (A MÁGICA) ---
+// --- 2. FUNÇÃO DE AUTO-REPARO E MIGRAÇÃO ---
 async function iniciarBanco() {
     try {
-        console.log('>>> 🛠️ VERIFICANDO ESTRUTURA DO BANCO...');
+        console.log('>>> 🛠️ INICIANDO VERIFICAÇÃO E MIGRAÇÃO DO BANCO...');
         
-        // 1. Cria Tabela Empresas
+        // 1. Cria tabelas básicas se não existirem
         await pool.query(`
             CREATE TABLE IF NOT EXISTS empresas (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,7 +40,6 @@ async function iniciarBanco() {
             );
         `);
 
-        // 2. Cria Tabela Usuarios
         await pool.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -54,7 +52,7 @@ async function iniciarBanco() {
             );
         `);
 
-        // 3. Cria Tabela Propostas
+        // Cria a tabela propostas se ela NÃO existir
         await pool.query(`
             CREATE TABLE IF NOT EXISTS propostas (
                 id SERIAL PRIMARY KEY,
@@ -72,34 +70,54 @@ async function iniciarBanco() {
             );
         `);
 
-        // 4. GARANTE O USUÁRIO ADMIN (Se não existir, cria)
+        // --- A CORREÇÃO DO ERRO (MIGRAÇÃO) ---
+        // Tenta adicionar a coluna empresa_id na tabela antiga, se ela não existir
+        try {
+            console.log('>>> 💉 APLICANDO VACINA NA TABELA PROPOSTAS...');
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS empresa_id UUID REFERENCES empresas(id)`);
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS valor_total DECIMAL(10,2)`);
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente'`);
+        } catch (e) {
+            console.log('>>> Tabela propostas já está atualizada.');
+        }
+
+        // 2. Garante o ADMIN e a EMPRESA MATRIZ
         const checkAdmin = await pool.query("SELECT * FROM usuarios WHERE email = 'admin@sondasaas.com'");
+        let adminEmpresaId = null;
+
         if (checkAdmin.rows.length === 0) {
-            console.log('>>> 👤 CRIANDO USUÁRIO ADMIN DE EMERGÊNCIA...');
-            
-            // Cria empresa matriz
+            console.log('>>> 👤 RECRIANDO ADMIN...');
+            // Cria empresa
             const empRes = await pool.query(`
                 INSERT INTO empresas (nome_fantasia, email_dono, cnpj) 
                 VALUES ('SondaSaaS Matriz', 'admin@sondasaas.com', '0001') 
                 RETURNING id
             `);
-            const empId = empRes.rows[0].id;
+            adminEmpresaId = empRes.rows[0].id;
 
             // Cria usuário
             await pool.query(`
                 INSERT INTO usuarios (empresa_id, nome, email, senha_hash, nivel_acesso)
                 VALUES ($1, 'Admin Supremo', 'admin@sondasaas.com', '123456', 'admin')
-            `, [empId]);
+            `, [adminEmpresaId]);
+        } else {
+            adminEmpresaId = checkAdmin.rows[0].empresa_id;
         }
 
-        console.log('>>> ✅ BANCO DE DADOS PRONTO E VERIFICADO!');
+        // 3. SALVA AS PROPOSTAS ÓRFÃS (Se existiam propostas antigas, joga elas pro Admin)
+        if (adminEmpresaId) {
+            await pool.query(`UPDATE propostas SET empresa_id = $1 WHERE empresa_id IS NULL`, [adminEmpresaId]);
+            console.log('>>> 🏚️ Propostas antigas recuperadas e vinculadas ao Admin.');
+        }
+
+        console.log('>>> ✅ SISTEMA 100% OPERACIONAL!');
 
     } catch (err) {
         console.error('!!! ERRO AO INICIAR BANCO !!!', err);
     }
 }
 
-// --- MIDDLEWARES E ROTAS ---
+// --- 3. MIDDLEWARES E ROTAS ---
 const checkAuth = (req, res, next) => { 
     if (req.session.user) next(); 
     else res.redirect('/login'); 
@@ -116,10 +134,10 @@ app.get('/logout', (req, res) => { req.session.destroy(); res.redirect('/login')
 app.post('/api/login', async (req, res) => {
     const { email, senha } = req.body;
     try {
-        const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+        const result = await pool.query("SELECT * FROM usuarios WHERE TRIM(email) = TRIM($1)", [email]);
         if (result.rows.length > 0) {
             const user = result.rows[0];
-            if (String(senha) === String(user.senha_hash)) {
+            if (String(senha).trim() === String(user.senha_hash).trim()) {
                 req.session.user = { id: user.id, empresa_id: user.empresa_id, nome: user.nome };
                 return res.sendStatus(200);
             }
@@ -128,14 +146,13 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// Controllers
+// Importar Controllers
 const propostasController = require('./controllers/propostasController');
 app.get('/api/propostas', checkAuth, propostasController.listarPropostas);
 app.post('/gerar-proposta', checkAuth, propostasController.criarProposta);
 app.get('/gerar-pdf/:id', checkAuth, propostasController.gerarPDFComercial);
 
 // INICIALIZAÇÃO
-// Primeiro arruma o banco, depois liga o servidor
 iniciarBanco().then(() => {
     app.listen(port, () => { console.log(`>>> SondaSaaS ON na porta ${port} <<<`); });
 });
