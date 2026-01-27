@@ -4,60 +4,56 @@ const path = require('path');
 const fs = require('fs');
 
 const COLORS = { 
-    SONDA_GREEN: '#8CBF26', 
+    SONDA_GREEN: '#2c3e50', // Ajustado para o tema do sistema
     DARK_TEXT: '#333333',
     LIGHT_BG: '#f5f5f5'
 };
 
-// --- FUNÇÃO AUXILIAR: DESENHA O LAYOUT (COMPARTILHADA) ---
-const montarLayoutPDF = (doc, p) => {
-    // 1. CABEÇALHO
-    const logoPath = path.join(__dirname, '../public', 'logo.png');
+// --- FUNÇÃO AUXILIAR: DESENHA O LAYOUT DO PDF ---
+const montarLayoutPDF = (doc, proposta, dadosEmpresa) => {
+    // 1. CABEÇALHO (Agora dinâmico com dados da empresa logada)
     
-    // Logo à Esquerda (Y=30)
-    if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, 30, 30, { width: 100 });
-    } else {
-        doc.fillColor(COLORS.SONDA_GREEN).fontSize(20).font('Helvetica-Bold').text('SONDAMAIS', 30, 40);
-    }
+    // Tenta carregar logo (futuramente virá do S3/URL da empresa)
+    // Por enquanto, texto simples se não tiver logo
+    doc.fillColor(COLORS.SONDA_GREEN).fontSize(20).font('Helvetica-Bold').text(dadosEmpresa.nome_fantasia || 'SISTEMA DE SONDAGEM', 30, 40);
 
     // Dados da Empresa (Lado Direito)
     doc.fillColor('#555').fontSize(9).font('Helvetica')
-       .text('Sondamais Engenharia', 350, 30, { align: 'right' })
-       .text('R. Luis Spiandorelli Neto, 60', 350, 45, { align: 'right' })
-       .text('Valinhos, São Paulo, 13271-570', 350, 60, { align: 'right' })
-       .text('(19) 99800-2260', 350, 75, { align: 'right' });
+       .text(dadosEmpresa.email_dono || '', 350, 45, { align: 'right' })
+       .text(`CNPJ: ${dadosEmpresa.cnpj || 'Não informado'}`, 350, 60, { align: 'right' });
 
-    // Título (Ajustado para Y=140 para não cobrir o logo)
+    // Título
     doc.fillColor(COLORS.SONDA_GREEN).fontSize(16).font('Helvetica-Bold').text('ORÇAMENTO DE SONDAGEM', 30, 140);
-    doc.rect(30, 160, 535, 2).fill(COLORS.SONDA_GREEN); // Linha verde
+    doc.rect(30, 160, 535, 2).fill(COLORS.SONDA_GREEN);
 
-    // 2. DADOS DA PROPOSTA (Grid Ajustado Y=170)
+    // 2. DADOS DA PROPOSTA
     let y = 170;
     
     // Linha 1: Metadados
     doc.fillColor('black').fontSize(10).font('Helvetica-Bold').text('Data:', 30, y);
-    doc.font('Helvetica').text(new Date(p.data_criacao).toLocaleDateString('pt-BR'), 30, y + 15);
+    doc.font('Helvetica').text(new Date(proposta.data_criacao).toLocaleDateString('pt-BR'), 30, y + 15);
     
+    // Como o ID agora é UUID (longo), mostramos apenas os primeiros 8 caracteres para ficar bonito no PDF
+    const idCurto = proposta.id.split('-')[0].toUpperCase();
     doc.font('Helvetica-Bold').text('Proposta Nº:', 150, y);
-    doc.font('Helvetica').text(`${p.id}/2026`, 150, y + 15);
+    doc.font('Helvetica').text(`${idCurto}/${new Date().getFullYear()}`, 150, y + 15);
 
-    doc.font('Helvetica-Bold').text('Elaborado por:', 300, y);
-    doc.font('Helvetica').text('Eng. Fabiano Rielli', 300, y + 15);
+    doc.font('Helvetica-Bold').text('Responsável:', 300, y);
+    doc.font('Helvetica').text(proposta.tecnico_responsavel || 'Equipe Técnica', 300, y + 15);
 
     y += 40;
     // Linha 2: Cliente
     doc.font('Helvetica-Bold').text('Cliente:', 30, y);
-    doc.font('Helvetica').text(p.cliente, 80, y);
+    doc.font('Helvetica').text(proposta.cliente, 80, y);
     
     y += 15;
     doc.font('Helvetica-Bold').text('Local:', 30, y);
-    doc.font('Helvetica').text(p.endereco, 80, y);
+    doc.font('Helvetica').text(proposta.endereco || 'Não informado', 80, y);
 
     y += 15;
     doc.font('Helvetica-Bold').text('Contato:', 30, y);
-    let contato = p.telefone || '';
-    if(p.email) contato += ` | ${p.email}`;
+    let contato = proposta.telefone || '';
+    if(proposta.email) contato += ` | ${proposta.email}`;
     doc.font('Helvetica').text(contato, 80, y);
 
     // 3. TABELA DE ITENS
@@ -75,42 +71,49 @@ const montarLayoutPDF = (doc, p) => {
     y += 25;
     doc.font('Helvetica').fontSize(9);
 
-    // Cálculos Reversos para Exibição
-    const totalSondagem = parseFloat(p.valor_total) + parseFloat(p.valor_desconto) - parseFloat(p.valor_art) - parseFloat(p.valor_mobilizacao);
-    const unitSondagem = p.metragem_total > 0 ? (totalSondagem / p.metragem_total) : 0;
+    // Cálculos para exibição
+    const valorTotal = parseFloat(proposta.valor_total);
+    const valorDesc = parseFloat(proposta.valor_desconto) || 0;
+    const valorArt = parseFloat(proposta.valor_art) || 0;
+    const valorMob = parseFloat(proposta.valor_mobilizacao) || 0;
+    const metragem = parseFloat(proposta.metragem_total) || 0;
+
+    // Valor da Sondagem Pura (Total - Extras + Desconto)
+    const totalSondagem = valorTotal + valorDesc - valorArt - valorMob;
+    const unitSondagem = metragem > 0 ? (totalSondagem / metragem) : 0;
 
     // Item 1: Sondagem
     doc.text('Sondagem SPT (NBR 6484:2020)', col.DESC, y);
     doc.fontSize(8).fillColor('#666')
-       .text('Furos de até critério técnico ou norma. Será cobrado o metro excedente.', col.DESC, y + 12, { width: 250 });
+       .text('Execução de sondagem à percussão.', col.DESC, y + 12, { width: 250 });
     
     doc.fontSize(9).fillColor('black');
-    doc.text(`${p.metragem_total}m`, col.QTD, y);
+    doc.text(`${metragem}m`, col.QTD, y);
     doc.text(`R$ ${unitSondagem.toFixed(2)}`, col.UNIT, y);
     doc.text(`R$ ${totalSondagem.toFixed(2)}`, col.TOTAL, y);
 
     // Item 2: Mobilização
     y += 35;
-    doc.text('Mobilização (Logística/Equipe)', col.DESC, y);
+    doc.text('Mobilização de Equipe/Equipamentos', col.DESC, y);
     doc.text('1', col.QTD, y);
-    doc.text(`R$ ${parseFloat(p.valor_mobilizacao).toFixed(2)}`, col.UNIT, y);
-    doc.text(`R$ ${parseFloat(p.valor_mobilizacao).toFixed(2)}`, col.TOTAL, y);
+    doc.text(`R$ ${valorMob.toFixed(2)}`, col.UNIT, y);
+    doc.text(`R$ ${valorMob.toFixed(2)}`, col.TOTAL, y);
 
     // Item 3: ART
     y += 20;
     doc.text('Emissão de ART', col.DESC, y);
     doc.text('1', col.QTD, y);
-    doc.text(`R$ ${parseFloat(p.valor_art).toFixed(2)}`, col.UNIT, y);
-    doc.text(`R$ ${parseFloat(p.valor_art).toFixed(2)}`, col.TOTAL, y);
+    doc.text(`R$ ${valorArt.toFixed(2)}`, col.UNIT, y);
+    doc.text(`R$ ${valorArt.toFixed(2)}`, col.TOTAL, y);
 
     // Item 4: Desconto
-    if (parseFloat(p.valor_desconto) > 0) {
+    if (valorDesc > 0) {
         y += 20;
         doc.fillColor('red');
         doc.text('Desconto Comercial', col.DESC, y);
         doc.text('-', col.QTD, y);
-        doc.text(`- R$ ${parseFloat(p.valor_desconto).toFixed(2)}`, col.UNIT, y);
-        doc.text(`- R$ ${parseFloat(p.valor_desconto).toFixed(2)}`, col.TOTAL, y);
+        doc.text(`- R$ ${valorDesc.toFixed(2)}`, col.UNIT, y);
+        doc.text(`- R$ ${valorDesc.toFixed(2)}`, col.TOTAL, y);
     }
 
     // Linha Total
@@ -120,113 +123,120 @@ const montarLayoutPDF = (doc, p) => {
     doc.fillColor('black').font('Helvetica-Bold').fontSize(12);
     doc.text('TOTAL GERAL', 300, y);
     doc.fillColor(COLORS.SONDA_GREEN).fontSize(14);
-    doc.text(`R$ ${parseFloat(p.valor_total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, col.TOTAL, y - 2);
+    doc.text(`R$ ${valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, col.TOTAL, y - 2);
 
     // Pagamento
     y += 30;
     doc.fillColor('black').fontSize(10).font('Helvetica-Bold').text('CONDIÇÕES DE PAGAMENTO:', 30, y);
-    doc.fontSize(10).font('Helvetica').text('50% Sinal (Início) + 50% na Entrega do Laudo (PIX/Transferência).', 30, y + 15);
+    doc.fontSize(10).font('Helvetica').text('50% no Aceite + 50% na Entrega do Relatório.', 30, y + 15);
 
-    // 4. TEXTOS LEGAIS (NBR)
+    // Textos Legais
     y += 45;
-    // Verifica se vai estourar a página, se sim, cria nova
     if(y > 700) { doc.addPage(); y = 50; }
 
-    doc.rect(30, y, 535, 130).fill('#f9f9f9');
+    doc.rect(30, y, 535, 100).fill('#f9f9f9');
     doc.fillColor('#333').fontSize(8).font('Helvetica-Bold');
-    
-    const paddingText = y + 10;
-    doc.text('CRITÉRIOS DE PARALISAÇÃO (CONFORME NBR 6484:2020):', 40, paddingText);
+    doc.text('CRITÉRIOS TÉCNICOS:', 40, y + 10);
     doc.font('Helvetica').fontSize(8).text(
-        'Na ausência de critério específico do cliente, seguimos a norma técnica. As sondagens avançarão até atingir um dos seguintes critérios (Item 5.2.4):',
-        40, paddingText + 15, { width: 510 }
+        'Serviços executados conforme norma NBR 6484. Paralisamos o furo conforme critérios normativos de impenetrábilidade.',
+        40, y + 25, { width: 510 }
     );
-    doc.text('a) 10m consecutivos com N >= 25 golpes;', 40, paddingText + 35);
-    doc.text('b) 8m consecutivos com N >= 30 golpes;', 40, paddingText + 48);
-    doc.text('c) 6m consecutivos com N >= 35 golpes.', 40, paddingText + 61);
     
-    doc.font('Helvetica-Bold').fillColor('red').text(
-        'OBS: Caso a profundidade ultrapasse a metragem contratada para atender à norma, será cobrado o valor do metro excedente.',
-        40, paddingText + 80, { width: 510 }
-    );
-
-    // 5. CRONOGRAMA
-    y += 140;
-    if(y > 750) { doc.addPage(); y = 50; }
-    
-    doc.font('Helvetica-Bold').fillColor('black').fontSize(10).text('CRONOGRAMA ESTIMADO', 30, y);
-    y += 15;
-    const cronoY = y;
-    doc.fontSize(9).font('Helvetica');
-    doc.text('• Previsão de Execução:', 30, cronoY); doc.text('1 a 2 dias úteis', 150, cronoY);
-    doc.text('• Início dos Serviços:', 30, cronoY + 15); doc.text('A combinar (após aceite)', 150, cronoY + 15);
-    doc.text('• Entrega do Relatório:', 30, cronoY + 30); doc.text('Até 3 dias úteis após campo', 150, cronoY + 30);
-    doc.text('• Validade da Proposta:', 30, cronoY + 45); doc.text('10 dias', 150, cronoY + 45);
-
     // Rodapé
-    doc.fontSize(8).fillColor('#aaa').text('SondaSaaS - Gerado automaticamente', 30, 780, { align: 'center', width: 535 });
+    doc.fontSize(8).fillColor('#aaa').text('Gerado via SondaSaaS', 30, 780, { align: 'center', width: 535 });
 };
 
 // --- CONTROLLERS ---
 
+// LISTAR (Filtrado por Empresa)
 exports.listarPropostas = async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM propostas ORDER BY id DESC');
+        const empresaId = req.session.user.empresa_id;
+        // Só busca propostas da empresa logada
+        const result = await pool.query(
+            'SELECT * FROM propostas WHERE empresa_id = $1 ORDER BY data_criacao DESC', 
+            [empresaId]
+        );
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
 
+// CRIAR (Vinculado à Empresa)
 exports.criarProposta = async (req, res) => {
     const d = req.body;
+    const empresaId = req.session.user.empresa_id; // Pega ID da sessão
+    const userNome = req.session.user.nome;
+
     try {
         // 1. Cálculos
         const metragem = parseFloat(d.metragem) || 0;
-        const valorMetro = parseFloat(d.valor_metro) || 0;
+        const valorMetro = parseFloat(d.valor_metro) || 0; // valor_metro vem do front, mas não salvamos no banco pra simplificar
         const art = parseFloat(d.art) || 0;
         const mob = parseFloat(d.mobilizacao) || 0;
         const desc = parseFloat(d.desconto) || 0;
         const valorTotal = (metragem * valorMetro) + art + mob - desc;
 
-        // 2. Salvar no Banco
-        const sql = `INSERT INTO propostas (cliente, telefone, email, endereco, furos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`;
-        const values = [d.cliente, d.telefone, d.email, d.endereco, d.furos, d.metragem, d.art, d.mobilizacao, d.desconto, valorTotal];
+        // 2. Salvar no Banco (Com empresa_id)
+        const sql = `
+            INSERT INTO propostas 
+            (empresa_id, cliente, telefone, email, endereco, furos_previstos, metragem_total, valor_art, valor_mobilizacao, valor_desconto, valor_total, tecnico_responsavel) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+            RETURNING *`;
+        
+        const values = [
+            empresaId, 
+            d.cliente, d.telefone, d.email, d.endereco, 
+            d.furos, d.metragem, 
+            art, mob, desc, valorTotal,
+            userNome // Usa o nome do usuário logado como responsável
+        ];
         
         const result = await pool.query(sql, values);
         const novaProposta = result.rows[0];
 
-        // 3. Gerar PDF e Baixar Imediatamente (Em vez de Redirect)
+        // 3. Buscar dados da empresa para o PDF
+        const empRes = await pool.query('SELECT * FROM empresas WHERE id = $1', [empresaId]);
+        const dadosEmpresa = empRes.rows[0];
+
+        // 4. Gerar PDF
         const doc = new PDFDocument({ margin: 30, size: 'A4' });
-        
         res.setHeader('Content-Type', 'application/pdf');
-        // 'attachment' força o download. O nome do arquivo ajuda a organizar.
-        res.setHeader('Content-Disposition', `attachment; filename="Orcamento_${novaProposta.id}_${novaProposta.cliente.replace(/ /g, '_')}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Orcamento_${d.cliente.replace(/ /g, '_')}.pdf"`);
         
         doc.pipe(res);
-        montarLayoutPDF(doc, novaProposta);
+        montarLayoutPDF(doc, novaProposta, dadosEmpresa);
         doc.end();
 
     } catch (e) {
         console.error(e);
-        res.status(500).send('Erro ao criar proposta.');
+        res.status(500).send('Erro ao criar proposta: ' + e.message);
     }
 };
 
+// GERAR PDF (Via Botão na Lista)
 exports.gerarPDFComercial = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await pool.query('SELECT * FROM propostas WHERE id = $1', [id]);
-        if (result.rows.length === 0) return res.status(404).send('Proposta não encontrada');
+        const empresaId = req.session.user.empresa_id;
 
+        // Busca Proposta (Segura: filtra por empresa)
+        const result = await pool.query('SELECT * FROM propostas WHERE id = $1 AND empresa_id = $2', [id, empresaId]);
+        
+        if (result.rows.length === 0) return res.status(404).send('Proposta não encontrada ou acesso negado');
         const p = result.rows[0];
-        const doc = new PDFDocument({ margin: 30, size: 'A4' });
 
+        // Busca Empresa
+        const empRes = await pool.query('SELECT * FROM empresas WHERE id = $1', [empresaId]);
+        const dadosEmpresa = empRes.rows[0];
+
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Orcamento_${p.id}_${p.cliente.replace(/ /g, '_')}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Orcamento_${p.cliente.replace(/ /g, '_')}.pdf"`);
         
         doc.pipe(res);
-        montarLayoutPDF(doc, p);
+        montarLayoutPDF(doc, p, dadosEmpresa);
         doc.end();
 
     } catch (e) {
@@ -235,20 +245,25 @@ exports.gerarPDFComercial = async (req, res) => {
     }
 };
 
+// ATUALIZAR STATUS (Kanban)
 exports.atualizarStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
+    const empresaId = req.session.user.empresa_id;
+
     try {
-        await pool.query('UPDATE propostas SET status = $1 WHERE id = $2', [status, id]);
+        await pool.query('UPDATE propostas SET status = $1 WHERE id = $2 AND empresa_id = $3', [status, id, empresaId]);
         res.sendStatus(200);
     } catch (err) {
         res.status(500).json(err);
     }
 };
 
+// DELETAR
 exports.deletarProposta = async (req, res) => {
+    const empresaId = req.session.user.empresa_id;
     try {
-        await pool.query('DELETE FROM propostas WHERE id = $1', [req.params.id]);
+        await pool.query('DELETE FROM propostas WHERE id = $1 AND empresa_id = $2', [req.params.id, empresaId]);
         res.sendStatus(200);
     } catch (err) {
         res.status(500).json(err);

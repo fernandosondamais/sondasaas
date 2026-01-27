@@ -1,18 +1,15 @@
-require('dotenv').config();
 const { Pool } = require('pg');
+require('dotenv').config();
 
+// Verifica se estamos rodando na nuvem (Produção) ou no PC (Desenvolvimento)
 const isProduction = process.env.NODE_ENV === 'production';
-// Se não houver variavel definida, usa a string local padrão
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:admin123@localhost:5432/sondasaas';
+
+// A string de conexão vem do arquivo .env ou do painel do Render
+const connectionString = process.env.DATABASE_URL;
 
 const pool = new Pool({
-    connectionString: connectionString,
-    ssl: isProduction ? { rejectUnauthorized: false } : false
-});
-
-pool.on('connect', () => {
-    // Log apenas em dev para não poluir produção
-    if (!isProduction) console.log('>>> PostgreSQL Conectado com Sucesso <<<');
+  connectionString: connectionString,
+  ssl: isProduction ? { rejectUnauthorized: false } : false // O Pulo do Gato para o Render
 });
 
 module.exports = pool;

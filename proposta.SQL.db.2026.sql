@@ -1,0 +1,12 @@
+/* ATUALIZAÇÃO: ADICIONAR CAMPOS FINANCEIROS E DE CONTATO NA PROPOSTA */
+
+ALTER TABLE propostas 
+ADD COLUMN IF NOT EXISTS telefone VARCHAR(50),
+ADD COLUMN IF NOT EXISTS email VARCHAR(255),
+ADD COLUMN IF NOT EXISTS valor_art NUMERIC(10,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS valor_mobilizacao NUMERIC(10,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS valor_desconto NUMERIC(10,2) DEFAULT 0;
+
+-- Adicionando coluna para guardar o nome do arquivo PDF gerado (opcional, mas bom)
+ALTER TABLE propostas
+ADD COLUMN IF NOT EXISTS nome_arquivo_pdf VARCHAR(255);
