@@ -1,19 +1,21 @@
 {
   "name": "sondasaas",
   "version": "1.0.0",
-  "description": "Gerador de Orcamentos SondaMais",
+  "description": "Sistema de Sondagem SaaS",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "dependencies": {
-    "dotenv": "^17.2.3",
-    "express": "^4.22.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
     "node-fetch": "^2.7.0",
-    "pdfkit": "^0.13.0",
-    "pg": "^8.17.2"
+    "pdfkit": "^0.14.0",
+    "pg": "^8.11.3"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
