@@ -1,30 +1,97 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const { Pool } = require('pg');
 const session = require('express-session');
-const pool = require('./config/db');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// --- 1. CONFIGURAÇÃO DE CONEXÃO (HÍBRIDA) ---
+const connectionString = process.env.DATABASE_URL || "postgres://sondasaas_db_user:QhOwhbqwMaso6EpV49iC29JIHRbNaabb@dpg-d5ocbter433s7381d8rg-a.virginia-postgres.render.com/sondasaas_db";
+
+// Detecta se é produção para ajustar o SSL
+const isProduction = connectionString.includes('render.com');
+
+console.log('--------------------------------------------------');
+console.log('>>> 🔌 TENTANDO CONEXÃO COM O BANCO (APP.JS)...');
+console.log('>>> URL em uso:', isProduction ? 'Link do Render (Nuvem)' : 'Link Local/Outro');
+console.log('--------------------------------------------------');
+
+const pool = new Pool({
+  connectionString: connectionString,
+  ssl: isProduction ? { rejectUnauthorized: false } : false 
+});
+
+// Exporta o pool
+module.exports = { pool };
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
 app.use(express.static('public')); 
 
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'segredo_sonda_saas_v2',
+    secret: process.env.SESSION_SECRET || 'segredo_sonda_saas',
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false }
 }));
 
-// --- MIDDLEWARE DE AUTENTICAÇÃO ---
+// --- 2. AUTO-REPARO DO BANCO (CRIA TABELAS E CORRIGE ERROS) ---
+async function iniciarBanco() {
+    try {
+        console.log('>>> 🛠️  VERIFICANDO TABELAS...');
+        
+        // Tabelas Essenciais
+        await pool.query(`CREATE TABLE IF NOT EXISTS empresas (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), nome_fantasia VARCHAR(255), email_dono VARCHAR(255), cnpj VARCHAR(50), data_criacao TIMESTAMP DEFAULT NOW());`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS usuarios (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), empresa_id UUID REFERENCES empresas(id), nome VARCHAR(255), email VARCHAR(255) UNIQUE, senha_hash VARCHAR(255), nivel_acesso VARCHAR(50), data_criacao TIMESTAMP DEFAULT NOW());`);
+        
+        // Cria tabela Propostas básica se não existir
+        await pool.query(`CREATE TABLE IF NOT EXISTS propostas (id SERIAL PRIMARY KEY, empresa_id UUID REFERENCES empresas(id), cliente VARCHAR(255), email VARCHAR(255), telefone VARCHAR(50), endereco TEXT, furos_previstos INTEGER, metragem_total DECIMAL(10,2), valor_total DECIMAL(10,2), status VARCHAR(50) DEFAULT 'Pendente', tecnico_responsavel VARCHAR(255), data_criacao TIMESTAMP DEFAULT NOW());`);
+
+        // --- MIGRAÇÃO DE EMERGÊNCIA ---
+        // Isso resolve o erro da Imagem 1 (coluna faltando)
+        console.log('>>> 🚑 RODANDO CORREÇÃO DE COLUNAS...');
+        try {
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS furos_previstos INTEGER`);
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS valor_art DECIMAL(10,2)`);
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS valor_mobilizacao DECIMAL(10,2)`);
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS valor_desconto DECIMAL(10,2)`);
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS empresa_id UUID REFERENCES empresas(id)`);
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS valor_total DECIMAL(10,2)`);
+            await pool.query(`ALTER TABLE propostas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente'`);
+            console.log('>>> ✅ Colunas verificadas/adicionadas com sucesso.');
+        } catch (e) { 
+            console.log('>>> Aviso: Alguma coluna já existia ou erro menor:', e.message);
+        }
+
+        // --- TABELAS DE ENGENHARIA (BOLETIM) ---
+        await pool.query(`CREATE TABLE IF NOT EXISTS furos (id SERIAL PRIMARY KEY, proposta_id INTEGER REFERENCES propostas(id) ON DELETE CASCADE, nome_furo VARCHAR(50), sondador VARCHAR(100), data_inicio TIMESTAMP, data_termino TIMESTAMP, nivel_agua_inicial DECIMAL(5,2), nivel_agua_final DECIMAL(5,2), coordenadas VARCHAR(100));`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS amostras (id SERIAL PRIMARY KEY, furo_id INTEGER REFERENCES furos(id) ON DELETE CASCADE, profundidade_ini DECIMAL(5,2), profundidade_fim DECIMAL(5,2), golpe_1 INTEGER, golpe_2 INTEGER, golpe_3 INTEGER, tipo_solo TEXT);`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS fotos (id SERIAL PRIMARY KEY, furo_id INTEGER REFERENCES furos(id) ON DELETE CASCADE, imagem_base64 TEXT, legenda VARCHAR(255));`);
+
+        // --- GARANTE O ADMIN ---
+        const checkAdmin = await pool.query("SELECT * FROM usuarios WHERE email = 'admin@sondasaas.com'");
+        if (checkAdmin.rows.length === 0) {
+            console.log('>>> 👤 RECRIANDO ADMIN...');
+            const empRes = await pool.query(`INSERT INTO empresas (nome_fantasia, email_dono, cnpj) VALUES ('SondaSaaS Matriz', 'admin@sondasaas.com', '0001') RETURNING id`);
+            await pool.query(`INSERT INTO usuarios (empresa_id, nome, email, senha_hash, nivel_acesso) VALUES ($1, 'Admin Supremo', 'admin@sondasaas.com', '123456', 'admin')`, [empRes.rows[0].id]);
+        }
+        
+        console.log('>>> ✅ BANCO PRONTO E TABELAS VERIFICADAS!');
+
+    } catch (err) {
+        console.error('!!! ERRO FATAL NA CONEXÃO !!!', err.message);
+    }
+}
+
+// --- 3. ROTAS E MIDDLEWARES ---
 const checkAuth = (req, res, next) => { 
     if (req.session.user) next(); 
     else res.redirect('/login'); 
 };
 
-// --- ROTAS DE PÁGINAS ---
+// Páginas HTML
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/orcamento', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'orcamento.html')));
@@ -34,16 +101,14 @@ app.get('/crm', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'publ
 app.get('/boletim', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'boletim.html')));
 app.get('/logout', (req, res) => { req.session.destroy(); res.redirect('/login'); });
 
-// --- API LOGIN COMPATÍVEL COM V2 ---
+// API Login
 app.post('/api/login', async (req, res) => {
     const { email, senha } = req.body;
     try {
-        // Busca na tabela usuarios (que usa UUID agora)
-        const result = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email.trim()]);
+        const result = await pool.query("SELECT * FROM usuarios WHERE TRIM(email) = TRIM($1)", [email]);
         if (result.rows.length > 0) {
             const user = result.rows[0];
-            // Comparação simples conforme seu script de insert (123456)
-            if (senha.trim() === user.senha_hash) {
+            if (String(senha).trim() === String(user.senha_hash).trim()) {
                 req.session.user = { id: user.id, empresa_id: user.empresa_id, nome: user.nome };
                 return res.sendStatus(200);
             }
@@ -52,28 +117,47 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- IMPORTAÇÃO DOS CONTROLLERS ---
+// --- IMPORTAÇÃO DOS CONTROLLERS (A CORREÇÃO ESTÁ AQUI) ---
+// Note que agora está tudo minúsculo no require, igual ao nome do arquivo na sua pasta
 const propostasController = require('./controllers/propostasController');
-const boletimController = require('./controllers/boletimController');
+const boletimController = require('./controllers/boletimcontroller'); // <--- CORRIGIDO AQUI!
 
-// Rotas Propostas (V2)
+// Rotas de Propostas
 app.get('/api/propostas', checkAuth, propostasController.listarPropostas);
 app.post('/gerar-proposta', checkAuth, propostasController.criarProposta);
-app.get('/api/propostas/:id/pdf', checkAuth, propostasController.gerarPDFComercial);
+app.get('/api/propostas/:id/pdf', checkAuth, propostasController.gerarPDFComercial); 
 app.get('/gerar-pdf/:id', checkAuth, propostasController.gerarPDFComercial);
+app.post('/api/propostas/:id/status', checkAuth, propostasController.atualizarStatus); 
 app.patch('/api/propostas/:id/status', checkAuth, propostasController.atualizarStatus);
 app.delete('/api/propostas/:id', checkAuth, propostasController.deletarProposta);
 
-// Rotas Boletim (Engenharia V2)
+// Rotas de Boletim (Engenharia)
 app.get('/api/boletim/furos/:obraId', checkAuth, boletimController.listarFuros);
 app.post('/api/boletim/furos', checkAuth, boletimController.criarFuro);
 app.get('/api/boletim/amostras/:furoId', checkAuth, boletimController.listarAmostras);
 app.post('/api/boletim/amostras', checkAuth, boletimController.salvarAmostra);
 app.post('/api/boletim/fotos', checkAuth, boletimController.salvarFoto);
 app.put('/api/boletim/furos/:id', checkAuth, boletimController.atualizarFuro);
-app.get('/api/engenharia/:id', checkAuth, boletimController.dadosCompletosObra); // Nova rota para tela de engenharia
+// Rota extra para a tela de engenharia
+app.get('/api/engenharia/:id', checkAuth, async (req, res) => {
+    try {
+        // Implementação rápida inline para garantir funcionamento da tela engenharia.html
+        const { id } = req.params;
+        const pRes = await pool.query("SELECT * FROM propostas WHERE id = $1", [id]);
+        if (pRes.rows.length === 0) return res.status(404).json({error: 'Obra não encontrada'});
+        const fRes = await pool.query("SELECT * FROM furos WHERE proposta_id = $1 ORDER BY nome_furo", [id]);
+        const furos = fRes.rows;
+        for (let f of furos) {
+            const aRes = await pool.query("SELECT * FROM amostras WHERE furo_id = $1 ORDER BY profundidade_ini", [f.id]);
+            f.amostras = aRes.rows;
+            const fotoRes = await pool.query("SELECT * FROM fotos WHERE furo_id = $1", [f.id]);
+            f.fotos = fotoRes.rows;
+        }
+        res.json({ proposta: pRes.rows[0], furos });
+    } catch(e) { res.status(500).json(e); }
+});
 
-// --- INICIALIZAÇÃO ---
-// Nota: Removemos a recriação automática de tabelas aqui porque 
-// VOCÊ JÁ RODOU O SCRIPT SQL V2. O código apenas confia que o banco existe.
-app.listen(port, () => { console.log(`>>> 🚀 SondaSaaS V2 (UUID) RODANDO na porta ${port}`); });
+// --- 4. INICIALIZAÇÃO ---
+iniciarBanco().then(() => {
+    app.listen(port, () => { console.log(`>>> 🚀 SondaSaaS RODANDO na porta ${port}`); });
+});
