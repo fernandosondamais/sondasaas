@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SondaMais | App Campo</title>
+    <title>App Campo V4.1</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { background: #eef2f5; padding-bottom: 100px; font-family: 'Segoe UI', sans-serif; }
-        .header { background: #2c3e50; color: white; padding: 15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .card-obra { border-left: 6px solid #8CBF26; margin-bottom: 15px; cursor: pointer; background: white; border-radius: 8px; }
-        .card-obra:active { background: #f0f0f0; }
-        .btn-action { height: 60px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 1.2rem; margin-top: 15px; }
-        .input-big { height: 65px; font-size: 1.5rem; text-align: center; font-weight: bold; }
+        :root { --sonda-green: #8CBF26; }
+        body { background: #eef2f5; font-family: 'Segoe UI', sans-serif; padding-bottom: 80px; }
+        .header { background: #212529; color: white; padding: 15px; position: sticky; top: 0; z-index: 1000; }
+        .btn-verde { background-color: var(--sonda-green); color: white; font-weight: bold; border: none; }
+        .card-obra { border-left: 6px solid var(--sonda-green); margin-bottom: 15px; }
         .tela { display: none; }
         .tela.ativa { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from {opacity:0} to {opacity:1} }
@@ -22,81 +21,53 @@
 
     <div id="tela-obras" class="tela ativa">
         <div class="header d-flex justify-content-between align-items-center">
-            <span class="fw-bold fs-5">Minhas Obras</span>
-            <a href="/logout" class="text-white small text-decoration-none">Sair</a>
+            <span class="fw-bold">Minhas Obras</span>
+            <a href="/logout" class="btn btn-sm btn-outline-light">Sair</a>
         </div>
         <div class="container mt-3" id="lista-obras">
-            <div class="text-center mt-5">
-                <div class="spinner-border text-success"></div>
-                <p class="text-muted mt-2">Buscando cronograma...</p>
-            </div>
+            <div class="text-center mt-5"><div class="spinner-border text-success"></div></div>
         </div>
     </div>
 
     <div id="tela-furos" class="tela">
-        <div class="header d-flex align-items-center gap-3">
-            <i class="bi bi-arrow-left fs-2" onclick="voltar('tela-obras')"></i>
-            <h6 class="m-0 text-truncate fw-bold" id="nome-obra">...</h6>
+        <div class="header d-flex gap-3 align-items-center">
+            <i class="bi bi-arrow-left fs-3" onclick="voltar('tela-obras')"></i>
+            <h6 class="m-0 text-truncate" id="nome-obra">...</h6>
         </div>
         <div class="container mt-3">
             <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <a id="link-waze" href="#" target="_blank" class="btn btn-outline-dark w-100 fw-bold"><i class="bi bi-geo-alt-fill text-danger me-1"></i> WAZE</a>
-                </div>
-                <div class="col-6">
-                    <a id="link-tel" href="#" class="btn btn-outline-dark w-100 fw-bold"><i class="bi bi-whatsapp text-success me-1"></i> LIGAR</a>
-                </div>
+                <div class="col-6"><a id="link-waze" href="#" target="_blank" class="btn btn-light w-100 fw-bold border"><i class="bi bi-geo-alt text-danger"></i> Waze</a></div>
+                <div class="col-6"><a id="link-tel" href="#" class="btn btn-light w-100 fw-bold border"><i class="bi bi-telephone text-success"></i> Ligar</a></div>
             </div>
-
-            <button class="btn btn-success btn-action shadow" onclick="novoFuro()">
-                <i class="bi bi-plus-circle me-2"></i> INICIAR FURO
-            </button>
-            
-            <h6 class="mt-4 text-muted border-bottom pb-2">FUROS REALIZADOS</h6>
+            <button class="btn btn-verde w-100 py-3 mb-3 shadow-sm" onclick="novoFuro()"><i class="bi bi-plus-circle me-2"></i> INICIAR FURO</button>
             <div id="lista-furos"></div>
         </div>
     </div>
 
     <div id="tela-coleta" class="tela">
         <div class="header d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-3">
-                <i class="bi bi-arrow-left fs-2" onclick="voltar('tela-furos')"></i>
-                <div>
-                    <div class="fw-bold fs-5" id="nome-furo">SP-XX</div>
-                    <span class="badge bg-warning text-dark" id="prox-metro">Metro: 1.0m</span>
-                </div>
-            </div>
-            <button class="btn btn-outline-light btn-sm" onclick="modalFim()">Finalizar</button>
+            <i class="bi bi-arrow-left fs-3" onclick="voltar('tela-furos')"></i>
+            <div class="fw-bold" id="nome-furo">SP-XX</div>
+            <button class="btn btn-sm btn-outline-warning text-white" onclick="modalFim()">Finalizar</button>
         </div>
-
         <div class="container mt-3">
-            <div class="card shadow-sm border-0 p-3">
-                <label class="fw-bold text-muted mb-2">GOLPES (30cm cada)</label>
+            <div class="card p-3 shadow-sm">
+                <h6 class="text-muted fw-bold">GOLPES (30cm)</h6>
                 <div class="row g-2 mb-3">
-                    <div class="col-4"><input type="tel" id="g1" class="form-control input-big bg-light" placeholder="1º"></div>
-                    <div class="col-4"><input type="tel" id="g2" class="form-control input-big bg-light" placeholder="2º"></div>
-                    <div class="col-4"><input type="tel" id="g3" class="form-control input-big bg-light" placeholder="3º"></div>
+                    <div class="col-4"><input type="tel" id="g1" class="form-control fw-bold text-center fs-4 bg-light" placeholder="1º"></div>
+                    <div class="col-4"><input type="tel" id="g2" class="form-control fw-bold text-center fs-4 bg-light" placeholder="2º"></div>
+                    <div class="col-4"><input type="tel" id="g3" class="form-control fw-bold text-center fs-4 bg-light" placeholder="3º"></div>
                 </div>
-
-                <label class="fw-bold text-muted mb-2">SOLO / OBS</label>
-                <textarea id="desc" class="form-control mb-3 p-3 fs-5" rows="2" placeholder="Ex: Argila vermelha..."></textarea>
-
-                <div class="row g-2">
-                    <div class="col-3">
-                        <button class="btn btn-primary btn-action mt-0 h-100" onclick="document.getElementById('cam').click()">
-                            <i class="bi bi-camera-fill fs-3"></i>
-                        </button>
-                        <input type="file" id="cam" accept="image/*" capture="environment" class="d-none" onchange="uploadFoto()">
-                    </div>
-                    <div class="col-9">
-                        <button class="btn btn-success btn-action mt-0 h-100" onclick="salvarAmostra()">
-                            SALVAR METRO <i class="bi bi-check-lg ms-2"></i>
-                        </button>
-                    </div>
+                <h6 class="text-muted fw-bold">SOLO / OBS</h6>
+                <textarea id="desc" class="form-control mb-3" rows="2"></textarea>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" onclick="document.getElementById('cam').click()"><i class="bi bi-camera fs-4"></i></button>
+                    <input type="file" id="cam" accept="image/*" capture="environment" class="d-none" onchange="uploadFoto()">
+                    
+                    <button id="btn-salvar-metro" class="btn btn-verde w-100 fw-bold" onclick="salvarAmostra()">SALVAR METRO</button>
                 </div>
             </div>
-            
-            <div id="historico" class="mt-3 list-group list-group-flush rounded shadow-sm"></div>
+            <div id="historico" class="mt-3 list-group"></div>
         </div>
     </div>
 
@@ -104,15 +75,15 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title">Dados Finais</h5>
+                    <h5 class="modal-title">Finalizar Furo</h5>
                     <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label>Nível D'água (m)</label>
-                        <input type="number" id="na_ini" class="form-control input-big">
+                        <input type="number" id="na_ini" class="form-control form-control-lg text-center" placeholder="Deixe vazio se seco">
                     </div>
-                    <button class="btn btn-dark w-100 py-3 fw-bold" onclick="salvarFim()">ENCERRAR FURO</button>
+                    <button class="btn btn-dark w-100 py-3 fw-bold" onclick="salvarFim()">ENCERRAR AGORA</button>
                 </div>
             </div>
         </div>
@@ -120,38 +91,30 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let obraId, furoId, obraAtual = {};
-
-        function mostrar(t) { document.querySelectorAll('.tela').forEach(x=>x.classList.remove('ativa')); document.getElementById(t).classList.add('ativa'); window.scrollTo(0,0); }
+        let obraId, furoId;
+        function mostrar(t) { document.querySelectorAll('.tela').forEach(x=>x.classList.remove('ativa')); document.getElementById(t).classList.add('ativa'); }
         function voltar(t) { if(t==='tela-obras') loadObras(); mostrar(t); }
 
         function loadObras() {
             fetch('/api/propostas').then(r=>r.json()).then(d=>{
                 const l = document.getElementById('lista-obras'); l.innerHTML='';
-                if(d.length === 0) l.innerHTML = '<div class="text-center text-muted mt-5">Nenhuma obra designada para você.</div>';
+                if(d.length === 0) l.innerHTML = '<div class="text-center text-muted mt-5">Nenhuma obra encontrada.</div>';
                 d.forEach(o => {
                     l.innerHTML += `
-                    <div class="card card-obra shadow-sm p-3" onclick='entrarObra(${JSON.stringify(o)})'>
-                        <h5 class="fw-bold mb-1 text-dark">${o.cliente}</h5>
-                        <div class="text-muted mb-1"><i class="bi bi-geo-alt-fill text-danger"></i> ${o.endereco}</div>
-                        <div class="d-flex justify-content-between align-items-center mt-2">
-                            <span class="badge bg-light text-dark border">Furos: ${o.furos_previstos}</span>
-                            <span class="text-success small fw-bold">ABRIR <i class="bi bi-chevron-right"></i></span>
-                        </div>
+                    <div class="card card-obra shadow-sm p-3 bg-white" onclick="entrarObra('${o.id}', '${o.cliente}', '${o.endereco}', '${o.telefone}')">
+                        <h5 class="fw-bold mb-1">${o.cliente}</h5>
+                        <div class="small text-muted mb-1"><i class="bi bi-geo-alt"></i> ${o.endereco}</div>
+                        <span class="badge bg-light text-dark border">Ver Detalhes <i class="bi bi-chevron-right"></i></span>
                     </div>`;
                 });
             });
         }
 
-        function entrarObra(obra) {
-            obraId = obra.id;
-            obraAtual = obra;
-            document.getElementById('nome-obra').innerText = obra.cliente;
-            
-            // Configura Waze e Telefone
-            document.getElementById('link-waze').href = `https://waze.com/ul?q=${encodeURIComponent(obra.endereco)}`;
-            document.getElementById('link-tel').href = `tel:${obra.telefone || ''}`;
-            
+        function entrarObra(id, nome, end, tel) {
+            obraId = id;
+            document.getElementById('nome-obra').innerText = nome;
+            document.getElementById('link-waze').href = `https://waze.com/ul?q=${encodeURIComponent(end)}`;
+            document.getElementById('link-tel').href = `tel:${tel}`;
             mostrar('tela-furos');
             loadFuros();
         }
@@ -163,8 +126,8 @@
                     l.innerHTML += `
                     <div class="card mb-2 shadow-sm" onclick="entrarFuro('${f.id}', '${f.nome_furo}')">
                         <div class="card-body py-3 d-flex justify-content-between align-items-center">
-                            <span class="fw-bold fs-5 text-dark">🕳️ ${f.nome_furo}</span>
-                            <span class="text-muted small">${f.data_termino ? 'Finalizado' : 'Em andamento'}</span>
+                            <span class="fw-bold fs-5">🕳️ ${f.nome_furo}</span>
+                            <span class="small text-muted">${f.data_termino ? 'Finalizado' : 'Em andamento'}</span>
                         </div>
                     </div>`;
                 });
@@ -172,19 +135,31 @@
         }
 
         function novoFuro() {
-            // Pega Geolocalização
-            if(confirm('Iniciar novo furo neste local?')) {
+            if(confirm('Iniciar novo furo?')) {
+                // Fallback se GPS falhar
+                const fallbackCoords = () => {
+                   const n = prompt('Nome (Ex: SP-01):', 'SP-');
+                   if(n) criarFuroBackend(n, "Sem GPS");
+                };
+
                 navigator.geolocation.getCurrentPosition(pos => {
-                    const coords = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-                    const n = prompt('Nome do Furo (Ex: SP-01):', 'SP-');
-                    if(n) {
-                        fetch('/api/boletim/furos', {
-                            method:'POST', headers:{'Content-Type':'application/json'}, 
-                            body:JSON.stringify({proposta_id:obraId, nome_furo:n, coordenadas:coords})
-                        }).then(r=>r.json()).then(d=>entrarFuro(d.id, n));
-                    }
-                }, err => alert('Erro GPS: ative a localização!'));
+                    const n = prompt('Nome (Ex: SP-01):', 'SP-');
+                    if(n) criarFuroBackend(n, `${pos.coords.latitude}, ${pos.coords.longitude}`);
+                }, (err) => {
+                    alert('GPS indisponível, usando manual.');
+                    fallbackCoords();
+                });
             }
+        }
+
+        function criarFuroBackend(nome, coords) {
+             fetch('/api/boletim/furos', {
+                 method:'POST', 
+                 headers:{'Content-Type':'application/json'}, 
+                 body:JSON.stringify({proposta_id:obraId, nome_furo:nome, coordenadas:coords})
+             })
+             .then(r=>r.json())
+             .then(d=>entrarFuro(d.id, nome));
         }
 
         function entrarFuro(id, nome) {
@@ -197,52 +172,105 @@
         function loadAmostras() {
             fetch(`/api/boletim/amostras/${furoId}`).then(r=>r.json()).then(d=>{
                 const l = document.getElementById('historico'); l.innerHTML='';
-                let max = 0;
-                d.forEach(a => {
-                    if(parseFloat(a.profundidade_ini) > max) max = parseFloat(a.profundidade_ini);
-                    l.innerHTML = `
-                    <div class="list-group-item d-flex justify-content-between">
-                        <div><span class="fw-bold">${a.profundidade_ini}m</span> <small class="text-muted">${a.tipo_solo}</small></div>
-                        <span class="font-monospace fw-bold bg-light px-2 rounded border">${a.golpe_1}-${a.golpe_2}-${a.golpe_3}</span>
-                    </div>` + l.innerHTML;
+                // Exibe em ordem inversa (mais recente no topo)
+                d.reverse().forEach(a => {
+                    l.innerHTML += `<div class="list-group-item d-flex justify-content-between"><span>${a.profundidade_ini}m: ${a.tipo_solo}</span><span class="fw-bold badge bg-secondary">${a.golpe_1}-${a.golpe_2}-${a.golpe_3}</span></div>`;
                 });
-                document.getElementById('prox-metro').innerText = `Próximo: ${max + 1}.0m`;
-                ['g1','g2','g3','desc'].forEach(i=>document.getElementById(i).value='');
             });
         }
 
         function salvarAmostra() {
-            // ... (Mesma lógica de antes, só validação)
-            const g1 = document.getElementById('g1').value;
-            if(!g1) return alert('Preencha os dados!');
-            // Pega o metro atual do texto do badge
-            const metroTxt = document.getElementById('prox-metro').innerText.replace('Próximo: ','').replace('.0m','');
-            const prof = parseFloat(metroTxt);
+            const btn = document.getElementById('btn-salvar-metro');
+            const g1=document.getElementById('g1').value;
+            if(!g1) return alert('Preencha os golpes');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Salvando...';
 
             fetch('/api/boletim/amostras', {
-                method:'POST', headers:{'Content-Type':'application/json'},
+                method:'POST', headers:{'Content-Type':'application/json'}, 
                 body:JSON.stringify({
-                    furo_id: furoId, profundidade_ini: prof, profundidade_fim: prof+1,
-                    golpe_1: document.getElementById('g1').value,
-                    golpe_2: document.getElementById('g2').value,
-                    golpe_3: document.getElementById('g3').value,
-                    tipo_solo: document.getElementById('desc').value
+                    furo_id:furoId, 
+                    profundidade_ini: document.getElementById('historico').children.length + 1, // Mock simples de profundidade
+                    profundidade_fim: document.getElementById('historico').children.length + 2, 
+                    golpe_1:g1, 
+                    golpe_2:document.getElementById('g2').value, 
+                    golpe_3:document.getElementById('g3').value, 
+                    tipo_solo:document.getElementById('desc').value
                 })
-            }).then(() => { alert('Salvo!'); loadAmostras(); });
+            }).then(()=> { 
+                alert('Salvo!'); 
+                // Limpa campos
+                document.getElementById('g1').value = '';
+                document.getElementById('g2').value = '';
+                document.getElementById('g3').value = '';
+                document.getElementById('desc').value = '';
+                loadAmostras(); 
+            }).finally(() => {
+                btn.disabled = false;
+                btn.innerText = 'SALVAR METRO';
+            });
+        }
+
+        // IMPLEMENTADO: Função de Upload de Foto com conversão Base64
+        function uploadFoto() {
+            const input = document.getElementById('cam');
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const legenda = prompt("Legenda da foto (ex: Nível da água, Solo rochoso):", "Foto de campo");
+                    const base64Img = e.target.result;
+
+                    // Feedback visual que está enviando
+                    const btnCam = document.querySelector('.bi-camera').parentElement;
+                    const originalHTML = btnCam.innerHTML;
+                    btnCam.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                    btnCam.disabled = true;
+
+                    fetch('/api/boletim/fotos', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            furo_id: furoId,
+                            imagem_base64: base64Img,
+                            legenda: legenda || ""
+                        })
+                    }).then(r => {
+                        if(r.ok) alert('Foto salva com sucesso!');
+                        else alert('Erro ao salvar foto.');
+                    })
+                    .catch(err => alert('Erro de conexão ao enviar foto.'))
+                    .finally(() => {
+                        btnCam.innerHTML = originalHTML;
+                        btnCam.disabled = false;
+                        input.value = ''; // Reseta o input para permitir tirar outra foto igual
+                    });
+                }
+                
+                // Converte imagem para Base64
+                reader.readAsDataURL(input.files[0]);
+            }
         }
 
         function modalFim() { new bootstrap.Modal('#modalFim').show(); }
+        
         function salvarFim() {
+            // FIX CRÍTICO: Envia string vazia se não tiver valor, backend trata como NULL
+            const na = document.getElementById('na_ini').value;
             fetch(`/api/boletim/furos/${furoId}`, {
                 method:'PUT', headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({
-                    nivel_agua_inicial: document.getElementById('na_ini').value,
-                    data_termino: new Date()
-                })
-            }).then(() => { alert('Furo Finalizado!'); voltar('tela-furos'); });
+                body:JSON.stringify({ nivel_agua_inicial: na, data_termino: new Date() })
+            }).then(() => { 
+                alert('Furo Finalizado!'); 
+                // Esconde modal manualmente
+                const modalEl = document.getElementById('modalFim');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+                voltar('tela-furos'); 
+            });
         }
 
-        // Init
         loadObras();
     </script>
 </body>
