@@ -3,158 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - SondaSaaS</title>
+    <title>Login | SondaSaaS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        :root { --sonda-green: #6a9615; --sonda-dark: #444444; }
-        
-        body { 
-            background-color: #f4f6f9; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            font-family: 'Segoe UI', sans-serif;
-        }
-
-        .login-card {
-            border: none;
-            border-top: 5px solid var(--sonda-green);
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 400px;
-            overflow: hidden;
-        }
-
-        .login-header {
-            background: white;
-            padding: 30px 20px 10px;
-            text-align: center;
-        }
-
-        .icon-circle {
-            width: 70px;
-            height: 70px;
-            background: #f0f0f0;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            color: var(--sonda-green);
-        }
-
-        .btn-sonda {
-            background-color: var(--sonda-green);
-            color: white;
-            font-weight: bold;
-            border: none;
-            padding: 12px;
-            width: 100%;
-            border-radius: 6px;
-            transition: 0.3s;
-        }
-        .btn-sonda:hover { background-color: #567a10; color: white; }
-
-        .form-control:focus {
-            border-color: var(--sonda-green);
-            box-shadow: 0 0 0 0.25rem rgba(106, 150, 21, 0.25);
-        }
+        body { background: #f4f6f9; height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Segoe UI', sans-serif; }
+        .login-card { width: 100%; max-width: 380px; border: none; border-top: 5px solid #8CBF26; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .btn-sonda { background-color: #8CBF26; color: white; font-weight: bold; width: 100%; padding: 12px; border: none; }
+        .btn-sonda:hover { background-color: #6a9615; color: white; }
     </style>
 </head>
 <body>
-
-    <div class="container p-3">
-        <div class="login-card mx-auto">
-            <div class="login-header">
-                <div class="icon-circle shadow-sm">
-                    <i class="bi bi-layers-half fs-1"></i>
-                </div>
-                <h4 class="fw-bold" style="color: var(--sonda-dark)">SondaSaaS</h4>
-                <p class="text-muted small">Acesso Corporativo</p>
-            </div>
+    <div class="login-card card">
+        <div class="card-body p-4">
+            <h4 class="text-center fw-bold mb-1" style="color:#444">SondaSaaS</h4>
+            <p class="text-center text-muted small mb-4">Acesso Corporativo & Campo</p>
             
-            <div class="card-body p-4 bg-white">
-                <form id="loginForm">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">E-MAIL</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope"></i></span>
-                            <input type="email" id="email" class="form-control bg-light border-start-0" placeholder="ex: admin@sondasaas.com" required>
-                        </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label small fw-bold text-muted">SENHA</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-key"></i></span>
-                            <input type="password" id="senha" class="form-control bg-light border-start-0" placeholder="Sua senha" required>
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-sonda shadow-sm mb-3">
-                        <i class="bi bi-box-arrow-in-right me-2"></i>ENTRAR
-                    </button>
-                    
-                    <p id="msgErro" class="text-center text-danger small fw-bold" style="display: none;"></p>
-
-                    <div class="text-center mt-3">
-                        <a href="/" class="text-decoration-none small text-muted">
-                            <i class="bi bi-arrow-left me-1"></i>Voltar ao Início
-                        </a>
-                    </div>
-                </form>
-            </div>
-            <div class="bg-light p-3 text-center border-top">
-                <small class="text-muted" style="font-size: 0.75rem;">&copy; 2026 Sondamais Engenharia</small>
-            </div>
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">USUÁRIO</label>
+                    <input type="text" id="email" class="form-control" placeholder="Ex: luis ou jandilson" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">SENHA</label>
+                    <input type="password" id="senha" class="form-control" placeholder="••••" required>
+                </div>
+                <button type="submit" class="btn btn-sonda rounded-3">ENTRAR</button>
+                <p id="msgErro" class="text-danger text-center small mt-3 fw-bold"></p>
+            </form>
         </div>
     </div>
 
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const btn = document.querySelector('button');
+            btn.innerHTML = 'Verificando...';
             
-            const email = document.getElementById('email').value; // PEGA O EMAIL
-            const senha = document.getElementById('senha').value;
-            const btn = document.querySelector('button[type="submit"]');
-            const msgErro = document.getElementById('msgErro');
-            
-            // Limpa erro anterior
-            msgErro.style.display = 'none';
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    email: document.getElementById('email').value, 
+                    senha: document.getElementById('senha').value 
+                })
+            });
 
-            // Feedback visual
-            const originalText = btn.innerHTML;
-            btn.innerHTML = 'Conectando...';
-            btn.disabled = true;
-
-            try {
-                // MANDA EMAIL E SENHA PARA O NOVO BACKEND
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, senha }) 
-                });
-
-                if (res.ok) {
-                    // Se deu certo, vai pro Orçamento ou Painel
-                    window.location.href = '/orcamento';
-                } else {
-                    // Se deu errado (401)
-                    msgErro.innerText = 'E-mail ou senha incorretos.';
-                    msgErro.style.display = 'block';
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }
-            } catch (err) {
-                console.error(err);
-                msgErro.innerText = 'Erro de conexão com o servidor.';
-                msgErro.style.display = 'block';
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+            if (res.ok) {
+                const data = await res.json();
+                window.location.href = data.redirect;
+            } else {
+                document.getElementById('msgErro').innerText = 'Usuário ou senha incorretos.';
+                btn.innerHTML = 'ENTRAR';
             }
         });
     </script>
